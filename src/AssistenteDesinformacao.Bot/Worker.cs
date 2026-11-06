@@ -1,7 +1,7 @@
 using AssistenteDesinformacao.Application.Mensageria;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
-using Telegram.Bot.Types;
+using Telegram.Bot.Types.Enums;
 
 namespace AssistenteDesinformacao.Bot;
 
@@ -24,7 +24,7 @@ public class Worker(ITelegramBotClient bot, ILogger<Worker> logger) : Background
                 logger.LogError(erro, "Erro no polling do Telegram");
                 return Task.CompletedTask;
             },
-            new ReceiverOptions { AllowedUpdates = [Telegram.Bot.Types.Enums.UpdateType.Message] },
+            new ReceiverOptions { AllowedUpdates = [UpdateType.Message] },
             stoppingToken);
 
         await Task.Delay(Timeout.Infinite, stoppingToken);
