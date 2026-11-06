@@ -38,10 +38,12 @@ Precisa de Docker com Compose e de um servidor (ou sua máquina) com acesso à i
 4. Suba:
 
    ```bash
-   docker compose up -d
+   docker compose -f docker-compose.yml up -d
    ```
 
 O `.env` fica fora do repositório. Nunca faça commit dele.
+
+Para desenvolver, `docker compose up --build` builda a imagem do código local e expõe o Postgres na porta 5432 (usa o `docker-compose.override.yml`, que o Compose carrega sozinho). Por isso o passo 4 usa `-f docker-compose.yml`: na VPS o arquivo é ignorado e a imagem publicada é baixada.
 
 O provedor de IA é configurado por URL base, chave e modelo, então dá para trocar de provedor sem mexer no código. Os modelos de texto, de imagem e de embeddings são configurados separadamente. Sem modelo de imagem, o bot só lê texto.
 

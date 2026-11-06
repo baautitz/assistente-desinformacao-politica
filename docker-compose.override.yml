@@ -1,0 +1,11 @@
+# Carregado automaticamente por `docker compose up --build` (uso local):
+# builda a imagem do código e expõe o Postgres.
+# Na VPS use `docker compose -f docker-compose.yml up -d` para ignorar este arquivo.
+services:
+  bot:
+    build: .
+    pull_policy: never
+
+  db:
+    ports:
+      - "5432:5432"
