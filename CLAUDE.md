@@ -35,3 +35,7 @@ As skills do projeto estão em `.claude/skills/` e carregam sozinhas. Siga a tab
 | Nenhuma se aplica | Pergunte ao usuário antes de assumir |
 
 **Regra de entrega:** nunca rode `git push` nem `gh pr create` sem antes passar pela skill `entregar` e receber a confirmação explícita do dev.
+
+## Versões
+
+Sempre usar a versão mais recente **estável** (release, nunca beta, preview ou RC) de tudo: SDK e pacotes .NET, imagens Docker, GitHub Actions e dependências em geral. Ao adicionar ou tocar em uma dependência, confira a última versão estável (ex.: `dotnet list package --outdated`, `gh api repos/<dono>/<repo>/releases/latest`) em vez de copiar da memória. Em imagens Docker, fixar a versão major mais recente (ex.: `postgres:18`) e não a tag `latest`, para um upgrade de major não quebrar os dados.
