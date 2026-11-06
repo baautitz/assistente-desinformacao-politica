@@ -13,13 +13,15 @@ public sealed class BuscadorNaFactCheck(HttpClient http, OpcoesDaFactCheck opcoe
 {
     public static readonly Uri Endereco = new("https://factchecktools.googleapis.com/v1alpha1/");
 
+    /// <summary>A chave vai no cabeçalho, não na URL, para não aparecer em logs nem em mensagens de erro.</summary>
+    public const string CabecalhoDaChave = "X-Goog-Api-Key";
+
     public async Task<IReadOnlyList<Fonte>> BuscarAsync(Alegacao alegacao, CancellationToken ct)
     {
         var url = "claims:search"
             + $"?query={Uri.EscapeDataString(alegacao.Texto)}"
             + $"&languageCode={Uri.EscapeDataString(opcoes.Idioma)}"
-            + $"&pageSize={opcoes.ResultadosPorBusca}"
-            + $"&key={Uri.EscapeDataString(opcoes.Chave)}";
+            + $"&pageSize={opcoes.ResultadosPorBusca}";
 
         var resposta = await http.GetFromJsonAsync<RespostaDaBusca>(url, ct);
 

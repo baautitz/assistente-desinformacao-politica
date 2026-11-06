@@ -28,11 +28,15 @@ public static class InjecaoDeDependencias
                 .GetChatClient(ia.ModeloDeTexto)
                 .AsIChatClient());
 
-        services.AddSingleton(new OpcoesDaFactCheck(
+        var factCheck = new OpcoesDaFactCheck(
             Obrigatorio(config, "GOOGLE_FACT_CHECK_API_KEY"),
-            config["FACT_CHECK_IDIOMA"] is { Length: > 0 } idioma ? idioma : "pt-BR"));
+            config["FACT_CHECK_IDIOMA"] is { Length: > 0 } idioma ? idioma : "pt-BR");
+        services.AddSingleton(factCheck);
         services.AddHttpClient<IBuscadorDeFontes, BuscadorNaFactCheck>(http =>
-            http.BaseAddress = BuscadorNaFactCheck.Endereco);
+        {
+            http.BaseAddress = BuscadorNaFactCheck.Endereco;
+            http.DefaultRequestHeaders.Add(BuscadorNaFactCheck.CabecalhoDaChave, factCheck.Chave);
+        });
 
         services.AddSingleton<IExtratorDeAlegacoes, ExtratorDeAlegacoesComIa>();
         services.AddSingleton<IRedatorDeSintese, RedatorDeSinteseComIa>();
