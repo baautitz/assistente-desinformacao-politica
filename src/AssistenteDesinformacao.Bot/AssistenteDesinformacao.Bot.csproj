@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-AssistenteDesinformacao.Bot-74da2291-a14b-4c5d-b9f8-d76df5bcba1c</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
+    <PackageReference Include="Telegram.Bot" Version="22.10.3.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AssistenteDesinformacao.Application\AssistenteDesinformacao.Application.csproj" />
+    <ProjectReference Include="..\AssistenteDesinformacao.Infrastructure\AssistenteDesinformacao.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
