@@ -15,7 +15,7 @@ public class Worker(ITelegramBotClient bot, ILogger<Worker> logger) : Background
         bot.StartReceiving(
             async (cliente, update, ct) =>
             {
-                var resposta = Eco.Responder(update.Message?.Text);
+                var resposta = RepetirMensagem.Responder(update.Message?.Text);
                 if (resposta is not null)
                     await cliente.SendMessage(update.Message!.Chat.Id, resposta, cancellationToken: ct);
             },
