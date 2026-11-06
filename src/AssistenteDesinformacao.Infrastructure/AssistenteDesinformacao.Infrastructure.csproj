@@ -4,6 +4,11 @@
     <ProjectReference Include="..\AssistenteDesinformacao.Application\AssistenteDesinformacao.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.11.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.14" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

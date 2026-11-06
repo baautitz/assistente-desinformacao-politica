@@ -1,0 +1,51 @@
+using System.Text;
+using AssistenteDesinformacao.Application.Sinteses;
+using AssistenteDesinformacao.Domain.Analise;
+using AssistenteDesinformacao.Domain.Pesquisa;
+using Microsoft.Extensions.AI;
+
+namespace AssistenteDesinformacao.Infrastructure.Sinteses;
+
+public sealed class RedatorDeSinteseComIa(IChatClient ia) : IRedatorDeSintese
+{
+    private const string Instrucoes =
+        """
+        Você escreve respostas para um bot que ajuda pessoas a conferir mensagens políticas.
+        Resuma em até 3 frases curtas, em português simples, o que as fontes abaixo dizem sobre as alegações.
+        Regras:
+        - Use só o que está nas fontes. Não acrescente fatos.
+        - Não diga por conta própria se algo é verdadeiro ou falso. Se uma agência classificou, atribua a ela ("segundo a agência X, ...").
+        - Não recomende candidato, partido ou voto.
+        - Não escreva links nem datas: eles são mostrados depois do resumo.
+        - Não use markdown.
+        """;
+
+    public async Task<string> RedigirAsync(
+        IReadOnlyList<Alegacao> alegacoes, IReadOnlyList<Fonte> fontes, CancellationToken ct)
+    {
+        var resposta = await ia.GetResponseAsync(
+            [new ChatMessage(ChatRole.System, Instrucoes), new ChatMessage(ChatRole.User, Contexto(alegacoes, fontes))],
+            new ChatOptions { Temperature = 0.2f },
+            ct);
+
+        return resposta.Text;
+    }
+
+    private static string Contexto(IReadOnlyList<Alegacao> alegacoes, IReadOnlyList<Fonte> fontes)
+    {
+        var texto = new StringBuilder("Alegações:\n");
+        foreach (var alegacao in alegacoes)
+            texto.Append("- ").AppendLine(alegacao.Texto);
+
+        texto.AppendLine().AppendLine("Fontes:");
+        foreach (var fonte in fontes)
+        {
+            texto.Append("- ").Append(fonte.Veiculo).Append(": ").Append(fonte.Titulo);
+            if (fonte is Checagem checagem)
+                texto.Append(" (classificação da agência: ").Append(checagem.Classificacao).Append(')');
+            texto.AppendLine();
+        }
+
+        return texto.ToString();
+    }
+}
