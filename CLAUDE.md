@@ -27,9 +27,7 @@ As skills do projeto estão em `.claude/skills/` e carregam sozinhas. Siga a tab
 | --- | --- |
 | Ideia nova ou requisito ambíguo | `grill-with-docs` (entrevista antes de implementar; atualiza `GLOSSARY.md` e `docs/adr/`) |
 | Entrevista concluída, trabalho de várias sessões | `to-spec`, depois `to-tickets` (peça confirmação antes de criar issues no GitHub) |
-| Implementar uma issue | `implement` (usa `tdd` e fecha com `code-review`) |
-| Construir comportamento concreto test-first | `tdd` |
-| Revisar branch ou PR em profundidade | `code-review` |
+| Implementar uma issue | Ler a issue, implementar direto e escrever testes xUnit só do essencial (domínio e regras anti-alucinação) |
 | Bug difícil, intermitente ou regressão | `diagnosing-bugs` |
 | Termo de domínio confuso ou decisão difícil de reverter | `domain-modeling` |
 | Criar commit | `commit-atomico` (pt-BR) |

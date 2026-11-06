@@ -26,7 +26,6 @@ Percorra o diff **por área** (arquivo ou grupo de arquivos relacionados), uma d
 
 Se o dev tiver dúvida, explique com calma. Se discordar de uma recomendação, a decisão é dele; registre e siga.
 
-Ao final, para revisão mais profunda (padrões e aderência à spec) ofereça a skill `code-review`.
 
 ## 3. Resumo e confirmação
 
