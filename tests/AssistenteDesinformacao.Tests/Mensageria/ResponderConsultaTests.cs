@@ -42,6 +42,19 @@ public class ResponderConsultaTests
         Assert.Null(redator.FontesRecebidas);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Resumo_vazio_da_ia_vira_texto_padrao_mantendo_as_fontes(string resumoDaIa)
+    {
+        var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso(resumoDaIa));
+
+        var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
+
+        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
+        Assert.Equal([ChecagemRecente], sintese.Fontes);
+    }
+
     [Fact]
     public async Task Texto_sem_alegacao_responde_que_nao_encontrou()
     {

@@ -38,8 +38,8 @@ public sealed class ResponderConsulta(
         if (fontes.Count == 0)
             return SemApuracao();
 
-        var resumo = await redator.RedigirAsync(alegacoes, fontes, ct);
-        return new Sintese(resumo.Trim(), fontes);
+        var resumo = (await redator.RedigirAsync(alegacoes, fontes, ct)).Trim();
+        return new Sintese(resumo.Length > 0 ? resumo : MensagensDoBot.ResumoPadrao, fontes);
     }
 
     private static Sintese SemApuracao() => new(MensagensDoBot.SemApuracao, []);
