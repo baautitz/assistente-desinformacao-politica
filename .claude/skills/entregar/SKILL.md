@@ -42,7 +42,7 @@ Escreva o corpo em pt-BR, no formato da skill `pr`, com as seções traduzidas:
 - **Resumo**: menor visual que mostre a mudança (árvore, pseudocódigo ou diagrama).
 - **Evidência**: antes e depois (saída, print, teste).
 - **Risco de merge**: porta de mão única ou de duas mãos, e raio de impacto.
-- Linha final `Fecha #<id>` quando houver issue.
+- Linha final `Closes #<id>` quando houver issue (o GitHub só fecha a issue sozinho com palavras-chave em inglês; "Fecha" não funciona).
 - Linguagem do `GLOSSARY.md`.
 
 Proibido: qualquer menção a IA, "Generated with", `Co-Authored-By` ou equivalentes, no corpo do PR ou nos commits.
