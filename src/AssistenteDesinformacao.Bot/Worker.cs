@@ -1,24 +1,25 @@
 using AssistenteDesinformacao.Application.Mensageria;
+using AssistenteDesinformacao.Domain.Mensageria;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
+using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
 namespace AssistenteDesinformacao.Bot;
 
-public class Worker(ITelegramBotClient bot, ILogger<Worker> logger) : BackgroundService
+public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, ILogger<Worker> logger) : BackgroundService
 {
+    private static readonly LinkPreviewOptions SemPrevia = new() { IsDisabled = true };
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var me = await bot.GetMe(stoppingToken);
         logger.LogInformation("Bot @{usuario} iniciado (long polling)", me.Username);
 
         bot.StartReceiving(
-            async (cliente, update, ct) =>
-            {
-                var resposta = RepetirMensagem.Responder(update.Message?.Text);
-                if (resposta is not null)
-                    await cliente.SendMessage(update.Message!.Chat.Id, resposta, cancellationToken: ct);
-            },
+            (cliente, update, ct) => update.Message is { Text: { } texto } mensagem
+                ? Responder(cliente, mensagem.Chat.Id, texto, ct)
+                : Task.CompletedTask,
             (_, erro, _, _) =>
             {
                 logger.LogError(erro, "Erro no polling do Telegram");
@@ -28,5 +29,33 @@ public class Worker(ITelegramBotClient bot, ILogger<Worker> logger) : Background
             stoppingToken);
 
         await Task.Delay(Timeout.Infinite, stoppingToken);
+    }
+
+    private async Task Responder(ITelegramBotClient cliente, long chat, string texto, CancellationToken ct)
+    {
+        var resposta = await Gerar(cliente, chat, texto, ct);
+        await cliente.SendMessage(chat, resposta, linkPreviewOptions: SemPrevia, cancellationToken: ct);
+    }
+
+    private async Task<string> Gerar(ITelegramBotClient cliente, long chat, string texto, CancellationToken ct)
+    {
+        if (texto.Trim().StartsWith("/start", StringComparison.OrdinalIgnoreCase))
+            return MensagensDoBot.Inicio;
+
+        try
+        {
+            await cliente.SendChatAction(chat, ChatAction.Typing, cancellationToken: ct);
+
+            using var escopo = escopos.CreateScope();
+            var casoDeUso = escopo.ServiceProvider.GetRequiredService<ResponderConsulta>();
+            var sintese = await casoDeUso.ExecutarAsync(new Consulta(texto), ct);
+            return FormatadorDeResposta.Formatar(sintese);
+        }
+        catch (Exception erro) when (erro is not OperationCanceledException)
+        {
+            // Nunca logar o texto da consulta: mensagens de usuário não são guardadas.
+            logger.LogError(erro, "Falha ao responder consulta");
+            return MensagensDoBot.Erro;
+        }
     }
 }
