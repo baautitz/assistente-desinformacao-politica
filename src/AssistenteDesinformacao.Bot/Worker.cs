@@ -12,9 +12,12 @@ using Telegram.Bot.Types.ReplyMarkups;
 
 namespace AssistenteDesinformacao.Bot;
 
-public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, LimitadorDeConsultas limitador, ILogger<Worker> logger) : BackgroundService
+public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, LimitadorDeConsultas limitador, IConfiguration config, ILogger<Worker> logger) : BackgroundService
 {
     private static readonly LinkPreviewOptions SemPrevia = new() { IsDisabled = true };
+
+    // Opcional: sem ADMIN_TELEGRAM_ID válido, o comando /metricas não existe (é ignorado).
+    private readonly long? _admin = long.TryParse(config["ADMIN_TELEGRAM_ID"], out var id) ? id : null;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -26,8 +29,9 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
                 ? Votar(cliente, clique, ct)
                 : update.Message switch
             {
-                { Text: { } texto } mensagem => Responder(cliente, mensagem.Chat.Id, mensagem.From?.Id ?? mensagem.Chat.Id, texto, null, ct),
-                { Photo: { Length: > 0 } fotos } mensagem => Responder(cliente, mensagem.Chat.Id, mensagem.From?.Id ?? mensagem.Chat.Id, null, fotos[^1], ct),
+                { Text: { } texto } mensagem when EhMetricas(texto) => EnviarMetricas(cliente, mensagem, ct),
+                { Text: { } texto } mensagem => Responder(cliente, mensagem.Chat.Id, IdDoUsuario(mensagem), texto, null, ct),
+                { Photo: { Length: > 0 } fotos } mensagem => Responder(cliente, mensagem.Chat.Id, IdDoUsuario(mensagem), null, fotos[^1], ct),
                 _ => Task.CompletedTask,
             },
             (_, erro, _, _) =>
@@ -41,6 +45,37 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
+    private static long IdDoUsuario(Message mensagem) => mensagem.From?.Id ?? mensagem.Chat.Id;
+
+    private static bool EhMetricas(string texto) => texto.Trim().StartsWith("/metricas", StringComparison.OrdinalIgnoreCase);
+
+    // Só o admin configurado recebe resposta; para os demais o comando é ignorado. Só números agregados.
+    private async Task EnviarMetricas(ITelegramBotClient cliente, Message mensagem, CancellationToken ct)
+    {
+        if (_admin is null || IdDoUsuario(mensagem) != _admin)
+            return;
+
+        await SemFalhar("Falha ao consultar as métricas", async () =>
+        {
+            using var escopo = escopos.CreateScope();
+            var resumo = await escopo.ServiceProvider.GetRequiredService<ConsultarMetricas>().ExecutarAsync(ct);
+            await cliente.SendMessage(mensagem.Chat.Id, MensagensDoBot.Metricas(resumo), cancellationToken: ct);
+        });
+    }
+
+    // Falha em tarefa secundária (métrica, feedback) é registrada e nunca derruba o fluxo principal.
+    private async Task SemFalhar(string descricao, Func<Task> acao)
+    {
+        try
+        {
+            await acao();
+        }
+        catch (Exception erro) when (erro is not OperationCanceledException)
+        {
+            logger.LogError(erro, "{Descricao}", descricao);
+        }
+    }
+
     private async Task Responder(ITelegramBotClient cliente, long chat, long usuario, string? texto, PhotoSize? foto, CancellationToken ct)
     {
         var (resposta, botoes) = await Gerar(cliente, chat, usuario, texto, foto, ct);
@@ -50,7 +85,7 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
     // O voto grava só id da resposta, voto e data: nada do usuário nem da mensagem é guardado.
     private async Task Votar(ITelegramBotClient cliente, CallbackQuery clique, CancellationToken ct)
     {
-        try
+        await SemFalhar("Falha ao registrar feedback", async () =>
         {
             using var escopo = escopos.CreateScope();
             var registrar = escopo.ServiceProvider.GetRequiredService<RegistrarFeedback>();
@@ -58,11 +93,7 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
                 return;
 
             await cliente.AnswerCallbackQuery(clique.Id, MensagensDoBot.FeedbackRegistrado, cancellationToken: ct);
-        }
-        catch (Exception erro) when (erro is not OperationCanceledException)
-        {
-            logger.LogError(erro, "Falha ao registrar feedback");
-        }
+        });
     }
 
     private static InlineKeyboardMarkup Botoes()
@@ -98,7 +129,8 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
             var consulta = foto is null ? new Consulta(texto!) : Consulta.DePrint(await Baixar(cliente, foto, ct));
             var sintese = await casoDeUso.ExecutarAsync(consulta, ct);
             await RegistrarTempo(escopo, cronometro.Elapsed, ct);
-            return (FormatadorDeResposta.Formatar(sintese), Botoes());
+            // Só uma Síntese real (com fontes) pede avaliação; avisos e recusas não.
+            return (FormatadorDeResposta.Formatar(sintese), sintese.EncontrouFontes ? Botoes() : null);
         }
         catch (Exception erro) when (erro is not OperationCanceledException)
         {
@@ -111,15 +143,11 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
     // Só a duração é guardada; falha ao registrar a métrica não pode impedir a resposta.
     private async Task RegistrarTempo(IServiceScope escopo, TimeSpan duracao, CancellationToken ct)
     {
-        try
+        await SemFalhar("Falha ao registrar o tempo de resposta", async () =>
         {
             await escopo.ServiceProvider.GetRequiredService<RegistrarTempoDeResposta>().ExecutarAsync(duracao, ct);
             logger.LogInformation("Consulta respondida em {Milissegundos} ms", (long)duracao.TotalMilliseconds);
-        }
-        catch (Exception erro) when (erro is not OperationCanceledException)
-        {
-            logger.LogError(erro, "Falha ao registrar o tempo de resposta");
-        }
+        });
     }
 
     // Fotos enviadas pelo Telegram são sempre JPEG. A imagem fica só em memória.

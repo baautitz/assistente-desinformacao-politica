@@ -1,3 +1,6 @@
+using System.Globalization;
+using AssistenteDesinformacao.Application.Metricas;
+
 namespace AssistenteDesinformacao.Application.Mensageria;
 
 public static class MensagensDoBot
@@ -31,6 +34,11 @@ public static class MensagensDoBot
     public const string SoLeTexto = "No momento eu só consigo ler texto. Digite ou cole o conteúdo do print aqui na conversa.";
 
     public const string ImagemGrande = "Essa imagem é grande demais para eu ler. Mande um print menor ou cole o texto aqui.";
+
+    /// <summary>Texto do /metricas: só números agregados, nunca conteúdo de mensagens.</summary>
+    public static string Metricas(ResumoDeMetricas resumo) =>
+        string.Create(CultureInfo.InvariantCulture,
+            $"Consultas: {resumo.Consultas}\nVotos 👍: {resumo.VotosUteis}\nVotos 👎: {resumo.VotosInuteis}\nTempo médio de resposta: {(resumo.TempoMedioEmMilissegundos is { } ms ? $"{ms:0} ms" : "sem dados")}");
 
     public const string FeedbackRegistrado = "Obrigado pelo feedback!";
 
