@@ -39,6 +39,7 @@ Ficam no arquivo `.env` (modelo em [`.env.example`](.env.example)). As duas list
 | `LIMITE_CONSULTAS_POR_MINUTO` | não | `5` | Consultas por minuto permitidas a cada usuário. |
 | `COLETA_JANELA_DIAS` | não | `90` | Matérias mais antigas que isso são descartadas na coleta de RSS. |
 | `COLETA_INTERVALO_MINUTOS` | não | `60` | Intervalo entre rodadas de coleta. Os feeds ficam em `src/AssistenteDesinformacao.Bot/fontes.yaml`. |
+| `TESTE_POSTGRES` | não | vazio | Só para testes: string de conexão de um Postgres descartável. Habilita o teste da busca textual (ele recria o banco). |
 | `POSTGRES_USER` | sim | `bot` | Usuário do Postgres (lido pelo `docker compose`). |
 | `POSTGRES_PASSWORD` | sim | `troque-esta-senha` | Senha do Postgres. Troque antes de subir. |
 | `POSTGRES_DB` | sim | `desinformacao` | Nome do banco. |
