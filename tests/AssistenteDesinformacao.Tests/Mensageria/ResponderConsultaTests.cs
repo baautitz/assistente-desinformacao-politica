@@ -172,6 +172,7 @@ public class ResponderConsultaTests
             (await Criar(["a"], [ChecagemRecente], new RedatorFalso("Veja https://inventado.example/x")).ExecutarAsync(img)).Resumo);
     }
 
+    [Fact]
     public async Task Resumo_com_link_inventado_vira_resposta_padrao()
     {
         var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso("Veja https://inventado.example/x"));
@@ -220,6 +221,7 @@ public class ResponderConsultaTests
         public Task<IReadOnlyList<Alegacao>> ExtrairAsync(string texto, CancellationToken ct) => throw erro;
     }
 
+    [Fact]
     public async Task Imagem_sem_modelo_de_visao_avisa_que_so_le_texto()
     {
         var sintese = await CriarSemVisao().ExecutarAsync(Consulta.DePrint(new Imagem([1, 2, 3], "image/jpeg")));
