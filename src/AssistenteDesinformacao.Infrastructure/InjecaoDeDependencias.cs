@@ -28,6 +28,19 @@ public static class InjecaoDeDependencias
                 .GetChatClient(ia.ModeloDeTexto)
                 .AsIChatClient());
 
+        if (config["IA_MODELO_VISAO"] is { Length: > 0 } modeloDeVisao)
+        {
+            services.AddSingleton<IExtratorDeAlegacoesDeImagem>(_ =>
+                new ExtratorDeAlegacoesDeImagemComIa(
+                    new OpenAIClient(new ApiKeyCredential(ia.Chave), new OpenAIClientOptions { Endpoint = ia.UrlBase })
+                        .GetChatClient(modeloDeVisao)
+                        .AsIChatClient()));
+        }
+        else
+        {
+            services.AddSingleton<IExtratorDeAlegacoesDeImagem, ExtratorDeAlegacoesDeImagemSemVisao>();
+        }
+
         var factCheck = new OpcoesDaFactCheck(
             Obrigatorio(config, "GOOGLE_FACT_CHECK_API_KEY"),
             config["FACT_CHECK_IDIOMA"] is { Length: > 0 } idioma ? idioma : "pt-BR");
