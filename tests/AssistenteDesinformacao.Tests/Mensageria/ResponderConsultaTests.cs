@@ -79,8 +79,52 @@ public class ResponderConsultaTests
         Assert.Equal(sintese.Fontes.Count, sintese.Fontes.DistinctBy(f => f.Link).Count());
     }
 
+    [Fact]
+    public async Task Print_valido_gera_sintese_como_o_texto()
+    {
+        var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso("resumo"));
+
+        var sintese = await caso.ExecutarAsync(Consulta.DePrint(new Imagem([1, 2, 3], "image/jpeg")));
+
+        Assert.Equal("resumo", sintese.Resumo);
+        Assert.Equal([ChecagemRecente], sintese.Fontes);
+    }
+
+    [Fact]
+    public async Task Imagem_sem_modelo_de_visao_avisa_que_so_le_texto()
+    {
+        var sintese = await CriarSemVisao().ExecutarAsync(Consulta.DePrint(new Imagem([1, 2, 3], "image/jpeg")));
+
+        Assert.Equal(MensagensDoBot.SoLeTexto, sintese.Resumo);
+        Assert.False(sintese.EncontrouFontes);
+    }
+
+    [Fact]
+    public async Task Imagem_grande_demais_e_recusada()
+    {
+        var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso("resumo"));
+        var grande = new Imagem(new byte[ResponderConsulta.MaximoDeBytesDaImagem + 1], "image/png");
+
+        var sintese = await caso.ExecutarAsync(Consulta.DePrint(grande));
+
+        Assert.Equal(MensagensDoBot.ImagemGrande, sintese.Resumo);
+        Assert.False(sintese.EncontrouFontes);
+    }
+
     private static ResponderConsulta Criar(string[] alegacoes, IReadOnlyList<Fonte> fontes, RedatorFalso redator) =>
-        new(new ExtratorFalso(alegacoes), new BuscadorFalso(fontes), redator);
+        new(new ExtratorFalso(alegacoes), new ExtratorDeImagemFalso(alegacoes, disponivel: true), new BuscadorFalso(fontes), redator);
+
+    private static ResponderConsulta CriarSemVisao() =>
+        new(new ExtratorFalso(["alegação"]), new ExtratorDeImagemFalso(["alegação"], disponivel: false),
+            new BuscadorFalso([ChecagemRecente]), new RedatorFalso("resumo"));
+
+    private sealed class ExtratorDeImagemFalso(string[] alegacoes, bool disponivel) : IExtratorDeAlegacoesDeImagem
+    {
+        public bool Disponivel => disponivel;
+
+        public Task<IReadOnlyList<Alegacao>> ExtrairAsync(Imagem imagem, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<Alegacao>>(alegacoes.Select(a => new Alegacao(a)).ToList());
+    }
 
     private sealed class ExtratorFalso(string[] alegacoes) : IExtratorDeAlegacoes
     {
