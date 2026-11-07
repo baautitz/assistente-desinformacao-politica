@@ -4,6 +4,7 @@ using AssistenteDesinformacao.Application.Coleta;
 using AssistenteDesinformacao.Application.Feedbacks;
 using AssistenteDesinformacao.Application.Limites;
 using AssistenteDesinformacao.Application.Mensageria;
+using AssistenteDesinformacao.Application.Metricas;
 using AssistenteDesinformacao.Application.Pesquisa;
 using AssistenteDesinformacao.Application.Sinteses;
 using AssistenteDesinformacao.Infrastructure.Analise;
@@ -96,6 +97,9 @@ public static class InjecaoDeDependencias
         services.AddTransient<ColetarFeeds>();
         services.AddScoped<IRepositorioDeFeedbacks, RepositorioDeFeedbacks>();
         services.AddTransient<RegistrarFeedback>();
+        services.AddScoped<IRepositorioDeMetricas, RepositorioDeMetricas>();
+        services.AddTransient<RegistrarTempoDeResposta>();
+        services.AddTransient<ConsultarMetricas>();
     }
 
     /// <summary>Aplica as migrations pendentes. Chamado na inicialização do bot.</summary>

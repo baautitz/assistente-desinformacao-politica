@@ -83,6 +83,27 @@ namespace AssistenteDesinformacao.Infrastructure.Persistencia.Migrations
 
                     b.ToTable("feedbacks", (string)null);
                 });
+
+            modelBuilder.Entity("AssistenteDesinformacao.Domain.Metricas.TempoDeResposta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("Data")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Milissegundos")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Data");
+
+                    b.ToTable("tempos_de_resposta", (string)null);
+                });
 #pragma warning restore 612, 618
         }
     }
