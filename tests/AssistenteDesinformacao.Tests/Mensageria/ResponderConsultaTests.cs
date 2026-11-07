@@ -110,6 +110,41 @@ public class ResponderConsultaTests
     }
 
     [Fact]
+    public async Task Print_valido_gera_sintese_como_o_texto()
+    {
+        var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso("resumo"));
+
+        var sintese = await caso.ExecutarAsync(Consulta.DePrint(new Imagem([1, 2, 3], "image/jpeg")));
+
+        Assert.Equal("resumo", sintese.Resumo);
+        Assert.Equal([ChecagemRecente], sintese.Fontes);
+    }
+
+    private static readonly IExtratorDeAlegacoesDeImagem SemVisao = new ExtratorDeImagemFalso([], disponivel: false);
+
+    [Fact]
+    public async Task Print_com_pedido_eleitoral_e_bloqueado_sem_chamar_a_ia()
+    {
+        var redator = new RedatorFalso("resumo");
+        var caso = Criar(["Em quem eu devo votar?"], [ChecagemRecente], redator);
+
+        var sintese = await caso.ExecutarAsync(Consulta.DePrint(new Imagem([1], "image/jpeg")));
+
+        Assert.Equal(MensagensDoBot.RecomendacaoEleitoral, sintese.Resumo);
+        Assert.Null(redator.FontesRecebidas);
+    }
+
+    [Fact]
+    public async Task Print_sem_alegacao_sem_fonte_ou_com_resumo_invalido_segue_os_guardrails()
+    {
+        var img = Consulta.DePrint(new Imagem([1], "image/jpeg"));
+
+        Assert.Equal(MensagensDoBot.SemAlegacao, (await Criar([], [ChecagemRecente], new RedatorFalso("x")).ExecutarAsync(img)).Resumo);
+        Assert.Equal(MensagensDoBot.SemApuracao, (await Criar(["a"], [], new RedatorFalso("x")).ExecutarAsync(img)).Resumo);
+        Assert.Equal(MensagensDoBot.ResumoPadrao,
+            (await Criar(["a"], [ChecagemRecente], new RedatorFalso("Veja https://inventado.example/x")).ExecutarAsync(img)).Resumo);
+    }
+
     public async Task Resumo_com_link_inventado_vira_resposta_padrao()
     {
         var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso("Veja https://inventado.example/x"));
@@ -135,7 +170,7 @@ public class ResponderConsultaTests
     public async Task Erro_externo_gera_mensagem_amigavel()
     {
         var caso = new ResponderConsulta(
-            new ExtratorQueLanca(new HttpRequestException("falha externa")), new BuscadorFalso([]), new RedatorFalso("x"),
+            new ExtratorQueLanca(new HttpRequestException("falha externa")), SemVisao, new BuscadorFalso([]), new RedatorFalso("x"),
             NullLogger<ResponderConsulta>.Instance);
 
         var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
@@ -147,7 +182,7 @@ public class ResponderConsultaTests
     public async Task Cancelamento_nao_e_engolido()
     {
         var caso = new ResponderConsulta(
-            new ExtratorQueLanca(new OperationCanceledException()), new BuscadorFalso([]), new RedatorFalso("x"),
+            new ExtratorQueLanca(new OperationCanceledException()), SemVisao, new BuscadorFalso([]), new RedatorFalso("x"),
             NullLogger<ResponderConsulta>.Instance);
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => caso.ExecutarAsync(new Consulta("texto")));
@@ -158,8 +193,41 @@ public class ResponderConsultaTests
         public Task<IReadOnlyList<Alegacao>> ExtrairAsync(string texto, CancellationToken ct) => throw erro;
     }
 
+    public async Task Imagem_sem_modelo_de_visao_avisa_que_so_le_texto()
+    {
+        var sintese = await CriarSemVisao().ExecutarAsync(Consulta.DePrint(new Imagem([1, 2, 3], "image/jpeg")));
+
+        Assert.Equal(MensagensDoBot.SoLeTexto, sintese.Resumo);
+        Assert.False(sintese.EncontrouFontes);
+    }
+
+    [Fact]
+    public async Task Imagem_grande_demais_e_recusada()
+    {
+        var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso("resumo"));
+        var grande = new Imagem(new byte[ResponderConsulta.MaximoDeBytesDaImagem + 1], "image/png");
+
+        var sintese = await caso.ExecutarAsync(Consulta.DePrint(grande));
+
+        Assert.Equal(MensagensDoBot.ImagemGrande, sintese.Resumo);
+        Assert.False(sintese.EncontrouFontes);
+    }
+
     private static ResponderConsulta Criar(string[] alegacoes, IReadOnlyList<Fonte> fontes, RedatorFalso redator) =>
-        new(new ExtratorFalso(alegacoes), new BuscadorFalso(fontes), redator, NullLogger<ResponderConsulta>.Instance);
+        new(new ExtratorFalso(alegacoes), new ExtratorDeImagemFalso(alegacoes, disponivel: true), new BuscadorFalso(fontes), redator,
+            NullLogger<ResponderConsulta>.Instance);
+
+    private static ResponderConsulta CriarSemVisao() =>
+        new(new ExtratorFalso(["alegação"]), new ExtratorDeImagemFalso(["alegação"], disponivel: false),
+            new BuscadorFalso([ChecagemRecente]), new RedatorFalso("resumo"), NullLogger<ResponderConsulta>.Instance);
+
+    private sealed class ExtratorDeImagemFalso(string[] alegacoes, bool disponivel) : IExtratorDeAlegacoesDeImagem
+    {
+        public bool Disponivel => disponivel;
+
+        public Task<IReadOnlyList<Alegacao>> ExtrairAsync(Imagem imagem, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<Alegacao>>(alegacoes.Select(a => new Alegacao(a)).ToList());
+    }
 
     private sealed class ExtratorFalso(string[] alegacoes) : IExtratorDeAlegacoes
     {

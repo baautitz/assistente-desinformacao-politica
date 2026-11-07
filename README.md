@@ -33,6 +33,7 @@ Ficam no arquivo `.env` (modelo em [`.env.example`](.env.example)). As duas list
 | `IA_URL_BASE` | sim | `https://api.openai.com/v1` | URL base do provedor de IA compatível com a API da OpenAI (OpenAI, OpenRouter, Groq, Ollama...). |
 | `IA_CHAVE` | sim | - | Chave de API do provedor de IA. |
 | `IA_MODELO_TEXTO` | sim | `gpt-4o-mini` | Modelo usado para extrair a alegação e redigir a síntese. |
+| `IA_MODELO_VISAO` | não | vazio | Modelo de visão para ler prints. Sem ele, o bot responde que só lê texto. |
 | `GOOGLE_FACT_CHECK_API_KEY` | sim | - | Chave da Google Fact Check Tools API. |
 | `FACT_CHECK_IDIOMA` | não | `pt-BR` | Idioma das checagens buscadas. |
 | `LIMITE_CONSULTAS_POR_MINUTO` | não | `5` | Consultas por minuto permitidas a cada usuário. |

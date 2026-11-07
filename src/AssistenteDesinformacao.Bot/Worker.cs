@@ -18,9 +18,12 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
         logger.LogInformation("Bot @{usuario} iniciado (long polling)", me.Username);
 
         bot.StartReceiving(
-            (cliente, update, ct) => update.Message is { Text: { } texto } mensagem
-                ? Responder(cliente, mensagem.Chat.Id, mensagem.From?.Id ?? mensagem.Chat.Id, texto, ct)
-                : Task.CompletedTask,
+            (cliente, update, ct) => update.Message switch
+            {
+                { Text: { } texto } mensagem => Responder(cliente, mensagem.Chat.Id, mensagem.From?.Id ?? mensagem.Chat.Id, texto, null, ct),
+                { Photo: { Length: > 0 } fotos } mensagem => Responder(cliente, mensagem.Chat.Id, mensagem.From?.Id ?? mensagem.Chat.Id, null, fotos[^1], ct),
+                _ => Task.CompletedTask,
+            },
             (_, erro, _, _) =>
             {
                 logger.LogError(erro, "Erro no polling do Telegram");
@@ -32,15 +35,15 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
-    private async Task Responder(ITelegramBotClient cliente, long chat, long usuario, string texto, CancellationToken ct)
+    private async Task Responder(ITelegramBotClient cliente, long chat, long usuario, string? texto, PhotoSize? foto, CancellationToken ct)
     {
-        var resposta = await Gerar(cliente, chat, usuario, texto, ct);
+        var resposta = await Gerar(cliente, chat, usuario, texto, foto, ct);
         await cliente.SendMessage(chat, resposta, linkPreviewOptions: SemPrevia, cancellationToken: ct);
     }
 
-    private async Task<string> Gerar(ITelegramBotClient cliente, long chat, long usuario, string texto, CancellationToken ct)
+    private async Task<string> Gerar(ITelegramBotClient cliente, long chat, long usuario, string? texto, PhotoSize? foto, CancellationToken ct)
     {
-        if (texto.Trim().StartsWith("/start", StringComparison.OrdinalIgnoreCase))
+        if (texto?.Trim().StartsWith("/start", StringComparison.OrdinalIgnoreCase) == true)
             return MensagensDoBot.Inicio;
 
         if (!limitador.TentarRegistrar(usuario))
@@ -48,11 +51,15 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
 
         try
         {
+            if (foto is { FileSize: > ResponderConsulta.MaximoDeBytesDaImagem })
+                return MensagensDoBot.ImagemGrande;
+
             await cliente.SendChatAction(chat, ChatAction.Typing, cancellationToken: ct);
 
             using var escopo = escopos.CreateScope();
             var casoDeUso = escopo.ServiceProvider.GetRequiredService<ResponderConsulta>();
-            var sintese = await casoDeUso.ExecutarAsync(new Consulta(texto), ct);
+            var consulta = foto is null ? new Consulta(texto!) : Consulta.DePrint(await Baixar(cliente, foto, ct));
+            var sintese = await casoDeUso.ExecutarAsync(consulta, ct);
             return FormatadorDeResposta.Formatar(sintese);
         }
         catch (Exception erro) when (erro is not OperationCanceledException)
@@ -61,5 +68,14 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
             logger.LogError(erro, "Falha ao responder consulta");
             return MensagensDoBot.Erro;
         }
+    }
+
+    // Fotos enviadas pelo Telegram são sempre JPEG. A imagem fica só em memória.
+    private static async Task<Imagem> Baixar(ITelegramBotClient cliente, PhotoSize foto, CancellationToken ct)
+    {
+        var arquivo = await cliente.GetFile(foto.FileId, ct);
+        using var memoria = new MemoryStream();
+        await cliente.DownloadFile(arquivo.FilePath!, memoria, ct);
+        return new Imagem(memoria.ToArray(), "image/jpeg");
     }
 }

@@ -4,7 +4,7 @@ public static class MensagensDoBot
 {
     public const string Inicio =
         """
-        Olá! Me mande um texto político que você recebeu e eu procuro o que agências de checagem já publicaram sobre ele.
+        Olá! Me mande um texto ou um print político que você recebeu e eu procuro o que agências de checagem já publicaram sobre ele.
 
         O que eu faço:
         • Resumo em poucas linhas o que as fontes dizem.
@@ -16,8 +16,6 @@ public static class MensagensDoBot
         • Não recomendo candidato, partido ou voto.
         • Não guardo suas mensagens.
         • Se não encontrar fonte, aviso que não encontrei.
-
-        Por enquanto eu leio só texto.
         """;
 
     public const string SemApuracao = "Não encontrei apuração publicada sobre isso.";
@@ -29,6 +27,10 @@ public static class MensagensDoBot
 
     public const string RecomendacaoEleitoral =
         "Não recomendo candidato, partido nem voto. Posso mostrar o que agências de checagem e veículos publicaram sobre uma afirmação: me mande o texto que você quer conferir.";
+
+    public const string SoLeTexto = "No momento eu só consigo ler texto. Digite ou cole o conteúdo do print aqui na conversa.";
+
+    public const string ImagemGrande = "Essa imagem é grande demais para eu ler. Mande um print menor ou cole o texto aqui.";
 
     public const string Erro = "Não consegui responder agora. Tente de novo em alguns minutos.";
 
