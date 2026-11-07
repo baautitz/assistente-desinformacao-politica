@@ -42,7 +42,7 @@ public class ColetaTests
         var resultado = await Criar([ruim, bom], leitor, repo).ExecutarAsync(CancellationToken.None);
 
         Assert.Equal(1, resultado.Gravadas);
-        Assert.Equal(["Ruim"], resultado.FeedsComFalha);
+        Assert.Single(resultado.FeedsComFalha, f => f.StartsWith("Ruim"));
     }
 
     [Fact]

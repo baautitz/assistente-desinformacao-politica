@@ -31,9 +31,9 @@ public sealed class ColetarFeeds(
                 var novas = await repositorio.FiltrarNovasAsync(naJanela, ct);
                 gravadas += await repositorio.AdicionarNovasAsync(await ComEmbeddingsAsync(novas, ct), ct);
             }
-            catch (Exception) when (!ct.IsCancellationRequested)
+            catch (Exception erro) when (!ct.IsCancellationRequested)
             {
-                falhas.Add(feed.Veiculo);
+                falhas.Add($"{feed.Veiculo} ({erro.GetType().Name}: {erro.Message})");
             }
         }
 
