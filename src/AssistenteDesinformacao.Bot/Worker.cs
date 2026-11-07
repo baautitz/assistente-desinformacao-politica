@@ -1,6 +1,8 @@
 using AssistenteDesinformacao.Application.Feedbacks;
 using AssistenteDesinformacao.Application.Limites;
+using System.Diagnostics;
 using AssistenteDesinformacao.Application.Mensageria;
+using AssistenteDesinformacao.Application.Metricas;
 using AssistenteDesinformacao.Domain.Mensageria;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
@@ -90,10 +92,12 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
 
             await cliente.SendChatAction(chat, ChatAction.Typing, cancellationToken: ct);
 
+            var cronometro = Stopwatch.StartNew();
             using var escopo = escopos.CreateScope();
             var casoDeUso = escopo.ServiceProvider.GetRequiredService<ResponderConsulta>();
             var consulta = foto is null ? new Consulta(texto!) : Consulta.DePrint(await Baixar(cliente, foto, ct));
             var sintese = await casoDeUso.ExecutarAsync(consulta, ct);
+            await RegistrarTempo(escopo, cronometro.Elapsed, ct);
             return (FormatadorDeResposta.Formatar(sintese), Botoes());
         }
         catch (Exception erro) when (erro is not OperationCanceledException)
@@ -101,6 +105,20 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
             // Nunca logar o texto da consulta: mensagens de usuário não são guardadas.
             logger.LogError(erro, "Falha ao responder consulta");
             return (MensagensDoBot.Erro, null);
+        }
+    }
+
+    // Só a duração é guardada; falha ao registrar a métrica não pode impedir a resposta.
+    private async Task RegistrarTempo(IServiceScope escopo, TimeSpan duracao, CancellationToken ct)
+    {
+        try
+        {
+            await escopo.ServiceProvider.GetRequiredService<RegistrarTempoDeResposta>().ExecutarAsync(duracao, ct);
+            logger.LogInformation("Consulta respondida em {Milissegundos} ms", (long)duracao.TotalMilliseconds);
+        }
+        catch (Exception erro) when (erro is not OperationCanceledException)
+        {
+            logger.LogError(erro, "Falha ao registrar o tempo de resposta");
         }
     }
 
