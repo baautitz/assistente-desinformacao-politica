@@ -5,6 +5,7 @@ using AssistenteDesinformacao.Application.Sinteses;
 using AssistenteDesinformacao.Domain.Analise;
 using AssistenteDesinformacao.Domain.Mensageria;
 using AssistenteDesinformacao.Domain.Pesquisa;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AssistenteDesinformacao.Tests.Mensageria;
 
@@ -62,7 +63,7 @@ public class ResponderConsultaTests
 
         var sintese = await caso.ExecutarAsync(new Consulta("bom dia!"));
 
-        Assert.Equal(MensagensDoBot.SemApuracao, sintese.Resumo);
+        Assert.Equal(MensagensDoBot.SemAlegacao, sintese.Resumo);
     }
 
     [Fact]
@@ -79,8 +80,86 @@ public class ResponderConsultaTests
         Assert.Equal(sintese.Fontes.Count, sintese.Fontes.DistinctBy(f => f.Link).Count());
     }
 
+    [Theory]
+    [InlineData("Em quem eu devo votar?")]
+    [InlineData("Qual o melhor candidato a presidente?")]
+    [InlineData("Vote no 13!")]
+    public async Task Pedido_de_recomendacao_eleitoral_e_bloqueado_sem_chamar_a_ia(string texto)
+    {
+        var redator = new RedatorFalso("resumo");
+        var caso = Criar(["alegação"], [ChecagemRecente], redator);
+
+        var sintese = await caso.ExecutarAsync(new Consulta(texto));
+
+        Assert.Equal(MensagensDoBot.RecomendacaoEleitoral, sintese.Resumo);
+        Assert.Empty(sintese.Fontes);
+        Assert.Null(redator.FontesRecebidas);
+    }
+
+    [Theory]
+    [InlineData("Por isso, vote no candidato X.")]
+    [InlineData("O melhor candidato é o Y.")]
+    public async Task Resumo_com_recomendacao_eleitoral_vira_resposta_padrao(string resumoDaIa)
+    {
+        var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso(resumoDaIa));
+
+        var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
+
+        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
+        Assert.Equal([ChecagemRecente], sintese.Fontes);
+    }
+
+    [Fact]
+    public async Task Resumo_com_link_inventado_vira_resposta_padrao()
+    {
+        var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso("Veja https://inventado.example/x"));
+
+        var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
+
+        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
+    }
+
+    [Fact]
+    public async Task Fonte_sem_link_valido_e_descartada_e_sem_nenhuma_responde_que_nao_encontrou()
+    {
+        var semLink = new Fonte("Matéria", new Uri("/relativo", UriKind.Relative), new DateOnly(2024, 1, 1), "Veículo");
+        var caso = Criar(["alegação"], [semLink], new RedatorFalso("resumo"));
+
+        var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
+
+        Assert.Equal(MensagensDoBot.SemApuracao, sintese.Resumo);
+        Assert.Empty(sintese.Fontes);
+    }
+
+    [Fact]
+    public async Task Erro_externo_gera_mensagem_amigavel()
+    {
+        var caso = new ResponderConsulta(
+            new ExtratorQueLanca(new HttpRequestException("falha externa")), new BuscadorFalso([]), new RedatorFalso("x"),
+            NullLogger<ResponderConsulta>.Instance);
+
+        var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
+
+        Assert.Equal(MensagensDoBot.Erro, sintese.Resumo);
+    }
+
+    [Fact]
+    public async Task Cancelamento_nao_e_engolido()
+    {
+        var caso = new ResponderConsulta(
+            new ExtratorQueLanca(new OperationCanceledException()), new BuscadorFalso([]), new RedatorFalso("x"),
+            NullLogger<ResponderConsulta>.Instance);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => caso.ExecutarAsync(new Consulta("texto")));
+    }
+
+    private sealed class ExtratorQueLanca(Exception erro) : IExtratorDeAlegacoes
+    {
+        public Task<IReadOnlyList<Alegacao>> ExtrairAsync(string texto, CancellationToken ct) => throw erro;
+    }
+
     private static ResponderConsulta Criar(string[] alegacoes, IReadOnlyList<Fonte> fontes, RedatorFalso redator) =>
-        new(new ExtratorFalso(alegacoes), new BuscadorFalso(fontes), redator);
+        new(new ExtratorFalso(alegacoes), new BuscadorFalso(fontes), redator, NullLogger<ResponderConsulta>.Instance);
 
     private sealed class ExtratorFalso(string[] alegacoes) : IExtratorDeAlegacoes
     {
