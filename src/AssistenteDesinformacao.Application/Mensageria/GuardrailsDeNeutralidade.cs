@@ -1,0 +1,27 @@
+using System.Text.RegularExpressions;
+using AssistenteDesinformacao.Domain.Pesquisa;
+
+namespace AssistenteDesinformacao.Application.Mensageria;
+
+/// <summary>Regras validadas antes do envio: neutralidade eleitoral e link em toda síntese.</summary>
+public static partial class GuardrailsDeNeutralidade
+{
+    /// <summary>Pedido ou texto que induz a recomendar candidato, partido ou voto.</summary>
+    [GeneratedRegex(
+        @"\b(em\s+quem\s+(eu\s+)?(devo\s+|vou\s+|posso\s+)?votar|(devo|deveria|posso)\s+votar|vote\s+(em|no|na|nos|nas)\b|n[aã]o\s+vote\b|vot(e|ar)\s+(certo|errado)|melhor\s+(candidat[oa]|partido)|pior\s+(candidat[oa]|partido)|(recomend\w+|indic\w+|sugir\w+)\s+(um\s+|o\s+|a\s+)?(candidat[oa]|partido|voto)|candidat[oa]\s+(ideal|certo))",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex RecomendacaoEleitoral();
+
+    [GeneratedRegex(@"https?://[^\s)\]>]+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex Links();
+
+    public static bool TemRecomendacaoEleitoral(string texto) => RecomendacaoEleitoral().IsMatch(texto);
+
+    public static bool TemLink(Fonte fonte) =>
+        fonte.Link.IsAbsoluteUri && fonte.Link.Scheme is "http" or "https";
+
+    /// <summary>Verdadeiro se o resumo cita algum link que não veio das fontes (possível invenção da IA).</summary>
+    public static bool CitaLinkForaDasFontes(string resumo, IReadOnlyList<Fonte> fontes) =>
+        Links().Matches(resumo).Any(m => !fontes.Any(f =>
+            string.Equals(m.Value.TrimEnd('.', ',', ';'), f.Link.AbsoluteUri, StringComparison.OrdinalIgnoreCase)));
+}
