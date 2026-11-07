@@ -42,6 +42,8 @@ Ficam no arquivo `.env` (modelo em [`.env.example`](.env.example)). As duas list
 | `COLETA_JANELA_DIAS` | não | `90` | Matérias mais antigas que isso são descartadas na coleta de RSS e ignoradas na busca. |
 | `COLETA_INTERVALO_MINUTOS` | não | `60` | Intervalo entre rodadas de coleta. Os feeds ficam em `src/AssistenteDesinformacao.Bot/fontes.yaml`. |
 | `TESTE_POSTGRES` | não | vazio | Só para testes: string de conexão de um Postgres descartável. Habilita os testes da busca textual e vetorial (eles recriam o banco). Precisa da extensão pgvector, por exemplo `docker run -p 55437:5432 -e POSTGRES_PASSWORD=x pgvector/pgvector:pg18`. |
+
+Para medir o filtro de neutralidade contra o modelo real, exporte `IA_URL_BASE`, `IA_CHAVE` e `IA_MODELO_TEXTO` (os mesmos do `.env`) e rode `dotnet test --filter ClassificadorDeNeutralidadeRealTests`. Sem essas variáveis, esses testes passam sem medir nada.
 | `POSTGRES_USER` | sim | `bot` | Usuário do Postgres (lido pelo `docker compose`). |
 | `POSTGRES_PASSWORD` | sim | `troque-esta-senha` | Senha do Postgres. Troque antes de subir. |
 | `POSTGRES_DB` | sim | `desinformacao` | Nome do banco. |
