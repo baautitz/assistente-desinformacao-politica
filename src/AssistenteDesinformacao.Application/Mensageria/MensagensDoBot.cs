@@ -27,4 +27,7 @@ public static class MensagensDoBot
     public const string ImagemGrande = "Essa imagem é grande demais para eu ler. Mande um print menor ou cole o texto aqui.";
 
     public const string Erro = "Não consegui responder agora. Tente de novo em alguns minutos.";
+
+    public const string LimiteAtingido =
+        "Você fez muitas consultas em pouco tempo. Aguarde cerca de um minuto e envie de novo.";
 }
