@@ -10,14 +10,14 @@ public sealed class BuscaDeMateriasNoPostgres(BancoDeDados banco) : IBuscaDeMate
     public const string Dicionario = "portuguese";
 
     public async Task<IReadOnlyList<Materia>> BuscarAsync(
-        IReadOnlyList<string> termos, int limite, CancellationToken ct)
+        IReadOnlyList<string> termos, int limite, DateTimeOffset desde, CancellationToken ct)
     {
         var achadas = new Dictionary<Uri, Materia>();
         foreach (var termo in termos)
         {
             // websearch_to_tsquery aceita texto livre sem lançar erro de sintaxe.
             var resultado = await banco.Materias
-                .Where(m => EF.Functions.ToTsVector(Dicionario, m.Titulo + " " + m.Resumo).Matches(EF.Functions.WebSearchToTsQuery(Dicionario, termo)))
+                .Where(m => m.DataPublicacao >= desde && EF.Functions.ToTsVector(Dicionario, m.Titulo + " " + m.Resumo).Matches(EF.Functions.WebSearchToTsQuery(Dicionario, termo)))
                 .OrderByDescending(m => EF.Functions.ToTsVector(Dicionario, m.Titulo + " " + m.Resumo).Rank(EF.Functions.WebSearchToTsQuery(Dicionario, termo)))
                 .ThenByDescending(m => m.DataPublicacao)
                 .Take(limite)

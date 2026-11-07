@@ -37,8 +37,9 @@ Ficam no arquivo `.env` (modelo em [`.env.example`](.env.example)). As duas list
 | `IA_MODELO_EMBEDDINGS` | não | vazio | Modelo de embeddings (ex.: `text-embedding-3-small`) do mesmo provedor. Com ele, a coleta gera o vetor de cada matéria nova e a consulta gera o da Alegação, e a busca combina sentido (pgvector) e texto. Sem ele, só texto. |
 | `GOOGLE_FACT_CHECK_API_KEY` | sim | - | Chave da Google Fact Check Tools API. |
 | `FACT_CHECK_IDIOMA` | não | `pt-BR` | Idioma das checagens buscadas. |
+| `ADMIN_TELEGRAM_ID` | não | vazio | ID numérico do Telegram de quem pode usar `/metricas`: consultas, votos 👍/👎 e tempo médio de resposta, só agregados e sem texto. Sem ele, o comando é ignorado. |
 | `LIMITE_CONSULTAS_POR_MINUTO` | não | `5` | Consultas por minuto permitidas a cada usuário. |
-| `COLETA_JANELA_DIAS` | não | `90` | Matérias mais antigas que isso são descartadas na coleta de RSS. |
+| `COLETA_JANELA_DIAS` | não | `90` | Matérias mais antigas que isso são descartadas na coleta de RSS e ignoradas na busca. |
 | `COLETA_INTERVALO_MINUTOS` | não | `60` | Intervalo entre rodadas de coleta. Os feeds ficam em `src/AssistenteDesinformacao.Bot/fontes.yaml`. |
 | `TESTE_POSTGRES` | não | vazio | Só para testes: string de conexão de um Postgres descartável. Habilita os testes da busca textual e vetorial (eles recriam o banco). Precisa da extensão pgvector, por exemplo `docker run -p 55437:5432 -e POSTGRES_PASSWORD=x pgvector/pgvector:pg18`. |
 | `POSTGRES_USER` | sim | `bot` | Usuário do Postgres (lido pelo `docker compose`). |
@@ -87,6 +88,8 @@ O `.env` fica fora do repositório. Nunca faça commit dele.
 ```bash
 docker compose -f docker-compose.yml up -d
 ```
+
+A imagem usa a tag `latest` porque o CI só publica `latest` e o SHA do commit; para fixar uma versão, troque no `docker-compose.yml` pela tag do SHA.
 
 O `-f docker-compose.yml` faz o Compose ignorar o `docker-compose.override.yml` (que é só para desenvolvimento) e baixar a imagem publicada em `ghcr.io/baautitz/assistente-desinformacao-politica`. Se o pacote estiver privado, faça `docker login ghcr.io` antes, com um token do GitHub com permissão `read:packages`.
 

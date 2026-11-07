@@ -23,6 +23,24 @@ public class BuscaTextualTests
         "É falso", new Uri("https://agencia.example/1"), new DateOnly(2026, 9, 1), "Agência", "Falso");
 
     [Fact]
+    public async Task Busca_nas_materias_respeita_a_janela_em_dias()
+    {
+        var busca = new BuscaFalsa([Reportagem]);
+        var agora = new DateTimeOffset(2026, 11, 7, 12, 0, 0, TimeSpan.Zero);
+        var buscador = new BuscadorDeMaterias(
+            new GeradorFalso(["urnas"]), busca, janelaEmDias: 90, relogio: new RelogioFixo(agora));
+
+        await buscador.BuscarAsync(new Alegacao("As urnas não são auditadas"), default);
+
+        Assert.Equal(agora.AddDays(-90), busca.DesdeRecebido);
+    }
+
+    private sealed class RelogioFixo(DateTimeOffset agora) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => agora;
+    }
+
+    [Fact]
     public async Task Materia_vira_fonte_com_link_e_data_de_publicacao()
     {
         var buscador = new BuscadorDeMaterias(new GeradorFalso(["urnas auditoria"]), new BuscaFalsa([Reportagem]));
@@ -101,7 +119,7 @@ public class BuscaTextualTests
                 Reportagem.DataPublicacao, "Jornal"));
         await banco.SaveChangesAsync();
 
-        var achadas = await new BuscaDeMateriasNoPostgres(banco).BuscarAsync(["urnas auditorias"], 5, default);
+        var achadas = await new BuscaDeMateriasNoPostgres(banco).BuscarAsync(["urnas auditorias"], 5, new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero), default);
 
         Assert.Equal([Reportagem.Link], achadas.Select(m => m.Link));
         await banco.Database.EnsureDeletedAsync();
@@ -117,9 +135,12 @@ public class BuscaTextualTests
     {
         public IReadOnlyList<string>? TermosRecebidos { get; private set; }
 
-        public Task<IReadOnlyList<Materia>> BuscarAsync(IReadOnlyList<string> termos, int limite, CancellationToken ct)
+        public DateTimeOffset? DesdeRecebido { get; private set; }
+
+        public Task<IReadOnlyList<Materia>> BuscarAsync(IReadOnlyList<string> termos, int limite, DateTimeOffset desde, CancellationToken ct)
         {
             TermosRecebidos = termos;
+            DesdeRecebido = desde;
             return Task.FromResult(materias);
         }
     }

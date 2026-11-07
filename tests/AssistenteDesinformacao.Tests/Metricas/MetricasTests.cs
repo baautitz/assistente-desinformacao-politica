@@ -1,4 +1,5 @@
 using AssistenteDesinformacao.Application.Feedbacks;
+using AssistenteDesinformacao.Application.Mensageria;
 using AssistenteDesinformacao.Application.Metricas;
 using AssistenteDesinformacao.Domain.Metricas;
 using AssistenteDesinformacao.Infrastructure.Persistencia;
@@ -10,6 +11,16 @@ public class MetricasTests
 {
     private static BancoDeDados NovoBanco(string nome) =>
         new(new DbContextOptionsBuilder<BancoDeDados>().UseInMemoryDatabase(nome).Options);
+
+    [Fact]
+    public void Texto_do_comando_traz_so_numeros_agregados()
+    {
+        var texto = MensagensDoBot.Metricas(new ResumoDeMetricas(3, 1, 4, 1250));
+
+        Assert.Contains("Consultas: 4", texto);
+        Assert.Contains("1250 ms", texto);
+        Assert.Contains("sem dados", MensagensDoBot.Metricas(new ResumoDeMetricas(0, 0, 0, null)));
+    }
 
     [Fact]
     public async Task Resume_votos_e_tempo_medio()

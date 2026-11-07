@@ -56,6 +56,33 @@ public class ResponderConsultaTests
         Assert.Equal([ChecagemRecente], sintese.Fontes);
     }
 
+    [Theory]
+    [InlineData("A mensagem é falso e circula desde 2022.")]
+    [InlineData("Isso é verdade.")]
+    [InlineData("Trata-se de fake news.")]
+    [InlineData("O boato é uma mentira.")]
+    public async Task Veredito_sem_atribuicao_vira_texto_padrao(string resumoDaIa)
+    {
+        var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso(resumoDaIa));
+
+        var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
+
+        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
+        Assert.Equal([ChecagemRecente], sintese.Fontes);
+    }
+
+    [Theory]
+    [InlineData("Segundo a Agência B, o dado é falso.")]
+    [InlineData("A Agência B diz que a mensagem é mentira.")]
+    public async Task Veredito_atribuido_a_uma_checagem_e_mantido(string resumoDaIa)
+    {
+        var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso(resumoDaIa));
+
+        var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
+
+        Assert.Equal(resumoDaIa, sintese.Resumo);
+    }
+
     [Fact]
     public async Task Texto_sem_alegacao_responde_que_nao_encontrou()
     {

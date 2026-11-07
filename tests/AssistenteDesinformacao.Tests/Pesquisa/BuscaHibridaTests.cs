@@ -108,7 +108,7 @@ public class BuscaHibridaTests
         banco.Materias.AddRange(longe, perto, Nova("sem-vetor"), Nova("outro-modelo", [1f, 0f]));
         await banco.SaveChangesAsync();
 
-        var achadas = await new BuscaVetorialNoPostgres(banco).BuscarAsync([1f, 0f, 0f], 5, default);
+        var achadas = await new BuscaVetorialNoPostgres(banco).BuscarAsync([1f, 0f, 0f], 5, new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero), default);
 
         Assert.Equal([perto.Link, longe.Link], achadas.Select(m => m.Link));
         Assert.Equal(perto.Embedding, achadas[0].Embedding);
@@ -123,7 +123,7 @@ public class BuscaHibridaTests
 
     private sealed class BuscaTextoFalsa(IReadOnlyList<Materia> materias) : IBuscaDeMaterias
     {
-        public Task<IReadOnlyList<Materia>> BuscarAsync(IReadOnlyList<string> termos, int limite, CancellationToken ct) =>
+        public Task<IReadOnlyList<Materia>> BuscarAsync(IReadOnlyList<string> termos, int limite, DateTimeOffset desde, CancellationToken ct) =>
             Task.FromResult(materias);
     }
 
@@ -131,7 +131,7 @@ public class BuscaHibridaTests
     {
         public bool Chamada { get; private set; }
 
-        public Task<IReadOnlyList<Materia>> BuscarAsync(float[] embedding, int limite, CancellationToken ct)
+        public Task<IReadOnlyList<Materia>> BuscarAsync(float[] embedding, int limite, DateTimeOffset desde, CancellationToken ct)
         {
             Chamada = true;
             return Task.FromResult(materias);
