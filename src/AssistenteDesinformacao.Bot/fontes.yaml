@@ -1,0 +1,14 @@
+# Feeds RSS coletados periodicamente pelo bot. Para incluir um veículo, adicione um item.
+feeds:
+  - veiculo: g1 Política
+    url: https://g1.globo.com/rss/g1/politica/
+  - veiculo: Folha de S.Paulo (Poder)
+    url: https://feeds.folha.uol.com.br/poder/rss091.xml
+  - veiculo: Agência Brasil (Política)
+    url: https://agenciabrasil.ebc.com.br/rss/politica/feed.xml
+  - veiculo: Agência Câmara de Notícias
+    url: https://www.camara.leg.br/noticias/rss/ultimas-noticias
+  - veiculo: Aos Fatos
+    url: https://www.aosfatos.org/noticias/feed/
+  - veiculo: Agência Lupa
+    url: https://lupa.news/feed/
