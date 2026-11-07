@@ -10,8 +10,8 @@ public interface IGeradorDeEmbeddings
 
 public interface IBuscaVetorialDeMaterias
 {
-    /// <summary>Matérias mais próximas do vetor, da mais para a menos parecida. Ignora as sem vetor.</summary>
-    Task<IReadOnlyList<Materia>> BuscarAsync(float[] embedding, int limite, CancellationToken ct);
+    /// <summary>Matérias mais próximas do vetor, da mais para a menos parecida. Ignora as sem vetor e as publicadas antes de <paramref name="desde"/>.</summary>
+    Task<IReadOnlyList<Materia>> BuscarAsync(float[] embedding, int limite, DateTimeOffset desde, CancellationToken ct);
 }
 
 /// <summary>Reciprocal Rank Fusion: combina rankings de buscas diferentes sem precisar comparar suas pontuações.</summary>

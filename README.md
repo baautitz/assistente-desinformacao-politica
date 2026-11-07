@@ -38,7 +38,7 @@ Ficam no arquivo `.env` (modelo em [`.env.example`](.env.example)). As duas list
 | `GOOGLE_FACT_CHECK_API_KEY` | sim | - | Chave da Google Fact Check Tools API. |
 | `FACT_CHECK_IDIOMA` | não | `pt-BR` | Idioma das checagens buscadas. |
 | `LIMITE_CONSULTAS_POR_MINUTO` | não | `5` | Consultas por minuto permitidas a cada usuário. |
-| `COLETA_JANELA_DIAS` | não | `90` | Matérias mais antigas que isso são descartadas na coleta de RSS. |
+| `COLETA_JANELA_DIAS` | não | `90` | Matérias mais antigas que isso são descartadas na coleta de RSS e ignoradas na busca. |
 | `COLETA_INTERVALO_MINUTOS` | não | `60` | Intervalo entre rodadas de coleta. Os feeds ficam em `src/AssistenteDesinformacao.Bot/fontes.yaml`. |
 | `TESTE_POSTGRES` | não | vazio | Só para testes: string de conexão de um Postgres descartável. Habilita os testes da busca textual e vetorial (eles recriam o banco). Precisa da extensão pgvector, por exemplo `docker run -p 55437:5432 -e POSTGRES_PASSWORD=x pgvector/pgvector:pg18`. |
 | `POSTGRES_USER` | sim | `bot` | Usuário do Postgres (lido pelo `docker compose`). |
