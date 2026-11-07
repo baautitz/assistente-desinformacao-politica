@@ -8,7 +8,7 @@ public static partial class GuardrailsDeNeutralidade
 {
     /// <summary>Pedido ou texto que induz a recomendar candidato, partido ou voto.</summary>
     [GeneratedRegex(
-        @"\b(em\s+quem\s+(eu\s+)?(devo\s+|vou\s+|posso\s+)?votar|(devo|deveria|posso)\s+votar|vote\s+(em|no|na|nos|nas)\b|n[aã]o\s+vote\b|vot(e|ar)\s+(certo|errado)|melhor\s+(candidat[oa]|partido)|pior\s+(candidat[oa]|partido)|(recomend\w+|indic\w+|sugir\w+)\s+(um\s+|o\s+|a\s+)?(candidat[oa]|partido|voto)|candidat[oa]\s+(ideal|certo))",
+        @"\b(em\s+quem\s+(eu\s+)?(devo\s+|vou\s+|posso\s+)?votar|(devo|deveria|posso)\s+votar|vote\s+(em|no|na|nos|nas)\b|n[aã]o\s+vote\b|vot(e|ar)\s+(certo|errado)|melhor\s+(candidat[oa]|partido)|pior\s+(candidat[oa]|partido)|(recomend\w+|indic\w+|sugir\w+)\s+(um\s+|o\s+|a\s+)?(candidat[oa]|partido|voto)|candidat[oa]\s+(ideal|certo)|(apoi\w+|escolh\w+|elei\w+)\s+(o\s+|a\s+)?(candidat[oa]|partido)|(merece|mere[cç]em)\s+((o|seu|meu|nosso)\s+)*voto|voto\s+([uú]til|consciente)|anul(e|ar)\s+(o\s+|seu\s+)?voto|vota(r|ndo)?\s+(no|na|em)\s+\d{2,5}|\bvote\s+\d{2,5})",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex RecomendacaoEleitoral();
 
