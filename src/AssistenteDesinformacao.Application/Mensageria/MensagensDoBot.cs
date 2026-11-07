@@ -31,4 +31,7 @@ public static class MensagensDoBot
         "Não recomendo candidato, partido nem voto. Posso mostrar o que agências de checagem e veículos publicaram sobre uma afirmação: me mande o texto que você quer conferir.";
 
     public const string Erro = "Não consegui responder agora. Tente de novo em alguns minutos.";
+
+    public const string LimiteAtingido =
+        "Você fez muitas consultas em pouco tempo. Aguarde cerca de um minuto e envie de novo.";
 }

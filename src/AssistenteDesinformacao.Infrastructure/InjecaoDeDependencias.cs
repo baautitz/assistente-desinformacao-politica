@@ -1,5 +1,6 @@
 using System.ClientModel;
 using AssistenteDesinformacao.Application.Analise;
+using AssistenteDesinformacao.Application.Limites;
 using AssistenteDesinformacao.Application.Mensageria;
 using AssistenteDesinformacao.Application.Pesquisa;
 using AssistenteDesinformacao.Application.Sinteses;
@@ -41,6 +42,13 @@ public static class InjecaoDeDependencias
         services.AddSingleton<IExtratorDeAlegacoes, ExtratorDeAlegacoesComIa>();
         services.AddSingleton<IRedatorDeSintese, RedatorDeSinteseComIa>();
         services.AddTransient<ResponderConsulta>();
+
+        var limite = config["LIMITE_CONSULTAS_POR_MINUTO"] is { Length: > 0 } texto
+            ? int.TryParse(texto, out var n) && n > 0
+                ? n
+                : throw new InvalidOperationException("LIMITE_CONSULTAS_POR_MINUTO deve ser um inteiro maior que zero.")
+            : LimitadorDeConsultas.PadraoPorMinuto;
+        services.AddSingleton(LimitadorDeConsultas.PorMinuto(limite));
 
         return services;
     }

@@ -1,3 +1,4 @@
+using AssistenteDesinformacao.Application.Limites;
 using AssistenteDesinformacao.Application.Mensageria;
 using AssistenteDesinformacao.Domain.Mensageria;
 using Telegram.Bot;
@@ -7,7 +8,7 @@ using Telegram.Bot.Types.Enums;
 
 namespace AssistenteDesinformacao.Bot;
 
-public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, ILogger<Worker> logger) : BackgroundService
+public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, LimitadorDeConsultas limitador, ILogger<Worker> logger) : BackgroundService
 {
     private static readonly LinkPreviewOptions SemPrevia = new() { IsDisabled = true };
 
@@ -18,7 +19,7 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, ILogge
 
         bot.StartReceiving(
             (cliente, update, ct) => update.Message is { Text: { } texto } mensagem
-                ? Responder(cliente, mensagem.Chat.Id, texto, ct)
+                ? Responder(cliente, mensagem.Chat.Id, mensagem.From?.Id ?? mensagem.Chat.Id, texto, ct)
                 : Task.CompletedTask,
             (_, erro, _, _) =>
             {
@@ -31,16 +32,19 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, ILogge
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
-    private async Task Responder(ITelegramBotClient cliente, long chat, string texto, CancellationToken ct)
+    private async Task Responder(ITelegramBotClient cliente, long chat, long usuario, string texto, CancellationToken ct)
     {
-        var resposta = await Gerar(cliente, chat, texto, ct);
+        var resposta = await Gerar(cliente, chat, usuario, texto, ct);
         await cliente.SendMessage(chat, resposta, linkPreviewOptions: SemPrevia, cancellationToken: ct);
     }
 
-    private async Task<string> Gerar(ITelegramBotClient cliente, long chat, string texto, CancellationToken ct)
+    private async Task<string> Gerar(ITelegramBotClient cliente, long chat, long usuario, string texto, CancellationToken ct)
     {
         if (texto.Trim().StartsWith("/start", StringComparison.OrdinalIgnoreCase))
             return MensagensDoBot.Inicio;
+
+        if (!limitador.TentarRegistrar(usuario))
+            return MensagensDoBot.LimiteAtingido;
 
         try
         {
