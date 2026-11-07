@@ -77,7 +77,8 @@ public static class InjecaoDeDependencias
                 new BuscadorDeMaterias(
                     sp.GetRequiredService<IGeradorDeTermosDeBusca>(), sp.GetRequiredService<IBuscaDeMaterias>(),
                     sp.GetService<IGeradorDeEmbeddings>(), sp.GetRequiredService<IBuscaVetorialDeMaterias>(),
-                    sp.GetRequiredService<OpcoesDeColeta>().JanelaEmDias, sp.GetRequiredService<TimeProvider>()),
+                    sp.GetRequiredService<OpcoesDeColeta>().JanelaEmDias, sp.GetRequiredService<TimeProvider>(),
+                    sp.GetRequiredService<ILogger<BuscadorDeMaterias>>()),
             ],
             sp.GetRequiredService<ILogger<BuscadorCombinado>>()));
 

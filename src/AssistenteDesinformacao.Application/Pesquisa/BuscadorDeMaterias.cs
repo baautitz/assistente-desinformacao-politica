@@ -1,6 +1,7 @@
 using AssistenteDesinformacao.Domain.Analise;
 using AssistenteDesinformacao.Domain.Coleta;
 using AssistenteDesinformacao.Domain.Pesquisa;
+using Microsoft.Extensions.Logging;
 
 namespace AssistenteDesinformacao.Application.Pesquisa;
 
@@ -11,7 +12,8 @@ public sealed class BuscadorDeMaterias(
     IGeradorDeEmbeddings? embeddings = null,
     IBuscaVetorialDeMaterias? buscaVetorial = null,
     int janelaEmDias = 90,
-    TimeProvider? relogio = null) : IBuscadorDeFontes
+    TimeProvider? relogio = null,
+    ILogger<BuscadorDeMaterias>? logger = null) : IBuscadorDeFontes
 {
     public const int MaximoDeMaterias = 10;
 
@@ -48,8 +50,9 @@ public sealed class BuscadorDeMaterias(
             var vetor = (await embeddings.GerarAsync([alegacao.Texto], ct)).FirstOrDefault();
             return vetor is null ? [] : await buscaVetorial.BuscarAsync(vetor, MaximoDeMaterias, desde, ct);
         }
-        catch (Exception) when (!ct.IsCancellationRequested)
+        catch (Exception erro) when (!ct.IsCancellationRequested)
         {
+            logger?.LogWarning(erro, "Busca por sentido falhou; seguindo só com texto");
             return [];
         }
     }
