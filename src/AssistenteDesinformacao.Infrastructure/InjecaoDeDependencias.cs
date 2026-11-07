@@ -1,3 +1,4 @@
+using System.Net;
 using System.ClientModel;
 using AssistenteDesinformacao.Application.Analise;
 using AssistenteDesinformacao.Application.Coleta;
@@ -117,6 +118,10 @@ public static class InjecaoDeDependencias
         {
             http.Timeout = TimeSpan.FromSeconds(30);
             http.DefaultRequestHeaders.UserAgent.ParseAdd("AssistenteDesinformacao/1.0");
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            // Alguns feeds (g1) respondem comprimidos em gzip.
+            AutomaticDecompression = DecompressionMethods.All,
         });
         services.AddScoped<IRepositorioDeMaterias, RepositorioDeMaterias>();
         services.AddTransient<ColetarFeeds>();

@@ -84,6 +84,24 @@ public class ColetaTests
     }
 
     [Fact]
+    public void Le_feed_rss_091_com_data_sem_dia_da_semana()
+    {
+        const string xml = """
+            <?xml version="1.0" encoding="ISO-8859-1" ?>
+            <rss version="0.91"><channel><title>Folha</title>
+              <item><title>Manchete</title><link>https://exemplo.test/m</link>
+                <description>Resumo</description>
+                <pubDate>07 Nov 2026 18:54:00 -0300</pubDate></item>
+            </channel></rss>
+            """;
+
+        var materia = Assert.Single(LeitorDeFeedRss.Ler(new MemoryStream(Encoding.Latin1.GetBytes(xml)), "Folha"));
+
+        Assert.Equal("Manchete", materia.Titulo);
+        Assert.Equal(new DateTimeOffset(2026, 11, 7, 21, 54, 0, TimeSpan.Zero), materia.DataPublicacao);
+    }
+
+    [Fact]
     public void Le_a_lista_de_feeds_do_yaml()
     {
         var feeds = FontesDeFeedsEmYaml.Interpretar("""

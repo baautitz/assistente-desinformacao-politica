@@ -1,6 +1,7 @@
 using System.ServiceModel.Syndication;
 using System.Text.RegularExpressions;
 using System.Xml;
+using System.Xml.Linq;
 using AssistenteDesinformacao.Application.Coleta;
 using AssistenteDesinformacao.Domain.Coleta;
 
@@ -16,9 +17,14 @@ public sealed partial class LeitorDeFeedRss(HttpClient http) : ILeitorDeFeed
 
     public static IReadOnlyList<Materia> Ler(Stream xml, string veiculo)
     {
-        using var leitor = XmlReader.Create(xml, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit });
+        var documento = XDocument.Load(
+            XmlReader.Create(xml, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, IgnoreWhitespace = true }));
 
-        return SyndicationFeed.Load(leitor).Items
+        // O leitor do .NET só aceita RSS 2.0, mas o 0.91 (usado pela Folha) tem os mesmos campos que lemos.
+        if (documento.Root is { Name.LocalName: "rss" } raiz && raiz.Attribute("version")?.Value is "0.91" or "0.92")
+            raiz.SetAttributeValue("version", "2.0");
+
+        return SyndicationFeed.Load(documento.CreateReader()).Items
             .Select(item => ParaMateria(item, veiculo))
             .OfType<Materia>()
             .ToList();
