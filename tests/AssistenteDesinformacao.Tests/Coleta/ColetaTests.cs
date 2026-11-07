@@ -126,6 +126,9 @@ public class ColetaTests
     {
         public List<Materia> Gravadas { get; } = [];
 
+        public Task<IReadOnlyList<Materia>> FiltrarNovasAsync(IReadOnlyCollection<Materia> materias, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<Materia>>(materias.ToList());
+
         public Task<int> AdicionarNovasAsync(IReadOnlyCollection<Materia> materias, CancellationToken ct)
         {
             Gravadas.AddRange(materias);

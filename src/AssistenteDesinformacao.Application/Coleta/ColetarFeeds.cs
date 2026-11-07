@@ -1,3 +1,6 @@
+using AssistenteDesinformacao.Application.Pesquisa;
+using AssistenteDesinformacao.Domain.Coleta;
+
 namespace AssistenteDesinformacao.Application.Coleta;
 
 public sealed record OpcoesDeColeta(int JanelaEmDias = 90, int IntervaloEmMinutos = 60);
@@ -10,7 +13,8 @@ public sealed class ColetarFeeds(
     ILeitorDeFeed leitor,
     IRepositorioDeMaterias repositorio,
     OpcoesDeColeta opcoes,
-    TimeProvider relogio)
+    TimeProvider relogio,
+    IGeradorDeEmbeddings? embeddings = null)
 {
     public async Task<ResultadoDaColeta> ExecutarAsync(CancellationToken ct)
     {
@@ -24,7 +28,8 @@ public sealed class ColetarFeeds(
             {
                 var materias = await leitor.LerAsync(feed, ct);
                 var naJanela = materias.Where(m => m.EstaNaJanela(agora, opcoes.JanelaEmDias)).ToList();
-                gravadas += await repositorio.AdicionarNovasAsync(naJanela, ct);
+                var novas = await repositorio.FiltrarNovasAsync(naJanela, ct);
+                gravadas += await repositorio.AdicionarNovasAsync(await ComEmbeddingsAsync(novas, ct), ct);
             }
             catch (Exception) when (!ct.IsCancellationRequested)
             {
@@ -33,5 +38,23 @@ public sealed class ColetarFeeds(
         }
 
         return new ResultadoDaColeta(gravadas, falhas);
+    }
+
+    /// <summary>Sem modelo configurado, ou se ele falhar, a matéria é gravada sem vetor e continua achável por texto.</summary>
+    private async Task<IReadOnlyList<Materia>> ComEmbeddingsAsync(IReadOnlyList<Materia> materias, CancellationToken ct)
+    {
+        if (embeddings is null || materias.Count == 0)
+            return materias;
+        try
+        {
+            var vetores = await embeddings.GerarAsync(materias.Select(m => $"{m.Titulo}. {m.Resumo}").ToList(), ct);
+            if (vetores.Count != materias.Count)
+                return materias;
+            return materias.Select((m, i) => m with { Embedding = vetores[i] }).ToList();
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return materias;
+        }
     }
 }

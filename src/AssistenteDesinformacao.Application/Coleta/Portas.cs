@@ -11,6 +11,9 @@ public interface ILeitorDeFeed
 
 public interface IRepositorioDeMaterias
 {
+    /// <summary>Descarta as matérias cujo link já existe, sem gravar nada.</summary>
+    Task<IReadOnlyList<Materia>> FiltrarNovasAsync(IReadOnlyCollection<Materia> materias, CancellationToken ct);
+
     /// <summary>Grava só as matérias cujo link ainda não existe. Devolve quantas foram gravadas.</summary>
     Task<int> AdicionarNovasAsync(IReadOnlyCollection<Materia> materias, CancellationToken ct);
 }
