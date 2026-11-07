@@ -24,5 +24,11 @@ public static class MensagensDoBot
 
     public const string ResumoPadrao = "Encontrei estas apurações sobre o assunto:";
 
+    public const string SemAlegacao =
+        "Não identifiquei uma afirmação que dê para conferir. Me mande o texto completo que você recebeu, com a afirmação sobre fatos (quem disse o quê, números, datas).";
+
+    public const string RecomendacaoEleitoral =
+        "Não recomendo candidato, partido nem voto. Posso mostrar o que agências de checagem e veículos publicaram sobre uma afirmação: me mande o texto que você quer conferir.";
+
     public const string Erro = "Não consegui responder agora. Tente de novo em alguns minutos.";
 }
