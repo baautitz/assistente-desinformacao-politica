@@ -32,6 +32,8 @@ public static class MensagensDoBot
 
     public const string ImagemGrande = "Essa imagem é grande demais para eu ler. Mande um print menor ou cole o texto aqui.";
 
+    public const string FeedbackRegistrado = "Obrigado pelo feedback!";
+
     public const string Erro = "Não consegui responder agora. Tente de novo em alguns minutos.";
 
     public const string LimiteAtingido =

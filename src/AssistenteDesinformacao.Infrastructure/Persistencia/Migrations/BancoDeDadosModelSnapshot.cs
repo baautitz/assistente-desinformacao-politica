@@ -58,6 +58,31 @@ namespace AssistenteDesinformacao.Infrastructure.Persistencia.Migrations
 
                     b.ToTable("materias", (string)null);
                 });
+
+            modelBuilder.Entity("AssistenteDesinformacao.Domain.Feedbacks.Feedback", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("Data")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RespostaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Util")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RespostaId")
+                        .IsUnique();
+
+                    b.ToTable("feedbacks", (string)null);
+                });
 #pragma warning restore 612, 618
         }
     }
