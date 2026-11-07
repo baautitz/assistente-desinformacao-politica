@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using OpenAI;
 
 namespace AssistenteDesinformacao.Infrastructure;
@@ -50,11 +51,20 @@ public static class InjecaoDeDependencias
             Obrigatorio(config, "GOOGLE_FACT_CHECK_API_KEY"),
             config["FACT_CHECK_IDIOMA"] is { Length: > 0 } idioma ? idioma : "pt-BR");
         services.AddSingleton(factCheck);
-        services.AddHttpClient<IBuscadorDeFontes, BuscadorNaFactCheck>(http =>
+        services.AddHttpClient<BuscadorNaFactCheck>(http =>
         {
             http.BaseAddress = BuscadorNaFactCheck.Endereco;
             http.DefaultRequestHeaders.Add(BuscadorNaFactCheck.CabecalhoDaChave, factCheck.Chave);
         });
+        services.AddSingleton<IGeradorDeTermosDeBusca, GeradorDeTermosComIa>();
+        services.AddScoped<IBuscaDeMaterias, BuscaDeMateriasNoPostgres>();
+        services.AddScoped<IBuscadorDeFontes>(sp => new BuscadorCombinado(
+            [
+                sp.GetRequiredService<BuscadorNaFactCheck>(),
+                new BuscadorDeMaterias(
+                    sp.GetRequiredService<IGeradorDeTermosDeBusca>(), sp.GetRequiredService<IBuscaDeMaterias>()),
+            ],
+            sp.GetRequiredService<ILogger<BuscadorCombinado>>()));
 
         services.AddSingleton<IExtratorDeAlegacoes, ExtratorDeAlegacoesComIa>();
         services.AddSingleton<IRedatorDeSintese, RedatorDeSinteseComIa>();
