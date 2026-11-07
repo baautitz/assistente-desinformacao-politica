@@ -1,3 +1,4 @@
+using AssistenteDesinformacao.Tests.Mensageria;
 using AssistenteDesinformacao.Application.Mensageria;
 using AssistenteDesinformacao.Application.Pesquisa;
 using AssistenteDesinformacao.Domain.Analise;
@@ -90,7 +91,7 @@ public class BuscaTextualTests
             NullLogger<BuscadorCombinado>.Instance);
         var redator = new RedatorFalso("Segundo a Agência, é falso. Veja https://inventado.example/x");
         var caso = new ResponderConsulta(
-            new ExtratorFalso(), new ImagemFalsa(), combinado, redator, NullLogger<ResponderConsulta>.Instance);
+            new ExtratorFalso(), new ImagemFalsa(), combinado, redator, ClassificadorDeNeutralidadeFalso.Liberando, NullLogger<ResponderConsulta>.Instance);
 
         var sintese = await caso.ExecutarAsync(new Consulta("As urnas não são auditadas"));
 

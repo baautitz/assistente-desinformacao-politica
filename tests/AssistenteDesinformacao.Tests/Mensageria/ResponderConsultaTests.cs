@@ -198,7 +198,7 @@ public class ResponderConsultaTests
     {
         var caso = new ResponderConsulta(
             new ExtratorQueLanca(new HttpRequestException("falha externa")), SemVisao, new BuscadorFalso([]), new RedatorFalso("x"),
-            NullLogger<ResponderConsulta>.Instance);
+            ClassificadorDeNeutralidadeFalso.Liberando, NullLogger<ResponderConsulta>.Instance);
 
         var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
 
@@ -210,7 +210,7 @@ public class ResponderConsultaTests
     {
         var caso = new ResponderConsulta(
             new ExtratorQueLanca(new OperationCanceledException()), SemVisao, new BuscadorFalso([]), new RedatorFalso("x"),
-            NullLogger<ResponderConsulta>.Instance);
+            ClassificadorDeNeutralidadeFalso.Liberando, NullLogger<ResponderConsulta>.Instance);
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => caso.ExecutarAsync(new Consulta("texto")));
     }
@@ -240,13 +240,85 @@ public class ResponderConsultaTests
         Assert.False(sintese.EncontrouFontes);
     }
 
-    private static ResponderConsulta Criar(string[] alegacoes, IReadOnlyList<Fonte> fontes, RedatorFalso redator) =>
+    [Theory]
+    [InlineData("Vale a pena apoiar o candidato X?")]
+    [InlineData("Quem merece o seu voto em outubro?")]
+    [InlineData("Anule o voto, todos são iguais")]
+    [InlineData("Vote 13 e mude o país")]
+    [InlineData("Voto útil: escolha o candidato do partido Y")]
+    public void Regex_pega_formas_comuns_de_pedir_voto(string texto) =>
+        Assert.True(GuardrailsDeNeutralidade.TemRecomendacaoEleitoral(texto));
+
+    [Theory]
+    [InlineData("A urna eletrônica não foi auditada em 2022")]
+    [InlineData("O candidato X disse que vai cortar impostos")]
+    public void Regex_nao_bloqueia_afirmacao_de_fato(string texto) =>
+        Assert.False(GuardrailsDeNeutralidade.TemRecomendacaoEleitoral(texto));
+
+    [Fact]
+    public async Task Parafrase_que_a_regex_nao_pega_e_bloqueada_pelo_classificador()
+    {
+        var redator = new RedatorFalso("resumo");
+        var caso = Criar(["alegação"], [ChecagemRecente], redator, new ClassificadorDeNeutralidadeFalso(t => t.Contains("fulano")));
+
+        var sintese = await caso.ExecutarAsync(new Consulta("Pra mim o fulano é o único que presta, concorda?"));
+
+        Assert.Equal(MensagensDoBot.RecomendacaoEleitoral, sintese.Resumo);
+        Assert.Null(redator.FontesRecebidas);
+    }
+
+    [Fact]
+    public async Task Alegacao_extraida_do_print_com_parafrase_e_bloqueada_pelo_classificador()
+    {
+        var caso = Criar(["fulano é o candidato que merece confiança"], [ChecagemRecente], new RedatorFalso("resumo"),
+            new ClassificadorDeNeutralidadeFalso(t => t.Contains("merece confiança")));
+
+        var sintese = await caso.ExecutarAsync(Consulta.DePrint(new Imagem([1], "image/jpeg")));
+
+        Assert.Equal(MensagensDoBot.RecomendacaoEleitoral, sintese.Resumo);
+    }
+
+    [Fact]
+    public async Task Resumo_da_ia_com_parafrase_eleitoral_vira_resposta_padrao()
+    {
+        var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso("Fica claro que o melhor caminho é ficar com o fulano."),
+            new ClassificadorDeNeutralidadeFalso(t => t.Contains("fulano")));
+
+        var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
+
+        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
+        Assert.Equal([ChecagemRecente], sintese.Fontes);
+    }
+
+    [Fact]
+    public async Task Falha_do_classificador_gera_mensagem_amigavel_e_nunca_libera()
+    {
+        var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso("resumo"),
+            new ClassificadorDeNeutralidadeFalso(_ => throw new HttpRequestException("fora do ar")));
+
+        var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
+
+        Assert.Equal(MensagensDoBot.Erro, sintese.Resumo);
+    }
+
+    [Theory]
+    [InlineData("NAO", false)]
+    [InlineData("não.", false)]
+    [InlineData("SIM", true)]
+    [InlineData("Talvez", true)]
+    [InlineData("", true)]
+    [InlineData(null, true)]
+    public void Classificador_so_libera_com_nao_claro(string? resposta, bool bloqueia) =>
+        Assert.Equal(bloqueia, AssistenteDesinformacao.Infrastructure.Analise.ClassificadorDeNeutralidadeComIa.Interpretar(resposta));
+
+    private static ResponderConsulta Criar(string[] alegacoes, IReadOnlyList<Fonte> fontes, RedatorFalso redator,
+        ClassificadorDeNeutralidadeFalso? classificador = null) =>
         new(new ExtratorFalso(alegacoes), new ExtratorDeImagemFalso(alegacoes, disponivel: true), new BuscadorFalso(fontes), redator,
-            NullLogger<ResponderConsulta>.Instance);
+            classificador ?? ClassificadorDeNeutralidadeFalso.Liberando, NullLogger<ResponderConsulta>.Instance);
 
     private static ResponderConsulta CriarSemVisao() =>
         new(new ExtratorFalso(["alegação"]), new ExtratorDeImagemFalso(["alegação"], disponivel: false),
-            new BuscadorFalso([ChecagemRecente]), new RedatorFalso("resumo"), NullLogger<ResponderConsulta>.Instance);
+            new BuscadorFalso([ChecagemRecente]), new RedatorFalso("resumo"), ClassificadorDeNeutralidadeFalso.Liberando, NullLogger<ResponderConsulta>.Instance);
 
     private sealed class ExtratorDeImagemFalso(string[] alegacoes, bool disponivel) : IExtratorDeAlegacoesDeImagem
     {

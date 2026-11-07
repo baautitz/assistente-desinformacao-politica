@@ -14,6 +14,7 @@ public sealed class ResponderConsulta(
     IExtratorDeAlegacoesDeImagem extratorDeImagem,
     IBuscadorDeFontes buscador,
     IRedatorDeSintese redator,
+    IClassificadorDeNeutralidade neutralidade,
     ILogger<ResponderConsulta> logger)
 {
     public const int MaximoDeAlegacoes = 3;
@@ -44,14 +45,15 @@ public sealed class ResponderConsulta(
             if (imagem.Conteudo.Length > MaximoDeBytesDaImagem)
                 return Mensagem(MensagensDoBot.ImagemGrande);
             extraidas = await extratorDeImagem.ExtrairAsync(imagem, ct);
-            if (extraidas.Any(a => GuardrailsDeNeutralidade.TemRecomendacaoEleitoral(a.Texto)))
-                return Mensagem(MensagensDoBot.RecomendacaoEleitoral);
+            foreach (var extraida in extraidas)
+                if (await InduzVotoAsync(extraida.Texto, ct))
+                    return Mensagem(MensagensDoBot.RecomendacaoEleitoral);
         }
         else
         {
             if (string.IsNullOrWhiteSpace(consulta.Texto))
                 return Mensagem(MensagensDoBot.SemAlegacao);
-            if (GuardrailsDeNeutralidade.TemRecomendacaoEleitoral(consulta.Texto))
+            if (await InduzVotoAsync(consulta.Texto, ct))
                 return Mensagem(MensagensDoBot.RecomendacaoEleitoral);
             extraidas = await extrator.ExtrairAsync(consulta.Texto, ct);
         }
@@ -77,11 +79,15 @@ public sealed class ResponderConsulta(
 
         var resumo = (await redator.RedigirAsync(alegacoes, fontes, ct)).Trim();
         var valido = resumo.Length > 0
-            && !GuardrailsDeNeutralidade.TemRecomendacaoEleitoral(resumo)
+            && !await InduzVotoAsync(resumo, ct)
             && !GuardrailsDeNeutralidade.CitaLinkForaDasFontes(resumo, fontes)
             && !GuardrailsDeNeutralidade.TemVereditoPorContaPropria(resumo, fontes);
         return new Sintese(valido ? resumo : MensagensDoBot.ResumoPadrao, fontes);
     }
+
+    /// <summary>Regex primeiro (barata e sem rede); se passar, o classificador julga o sentido.</summary>
+    private async Task<bool> InduzVotoAsync(string texto, CancellationToken ct) =>
+        GuardrailsDeNeutralidade.TemRecomendacaoEleitoral(texto) || await neutralidade.InduzVotoAsync(texto, ct);
 
     private static Sintese Mensagem(string texto) => new(texto, []);
 }
