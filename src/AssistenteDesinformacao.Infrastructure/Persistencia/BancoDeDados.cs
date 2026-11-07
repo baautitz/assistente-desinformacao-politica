@@ -1,4 +1,5 @@
 using AssistenteDesinformacao.Domain.Coleta;
+using AssistenteDesinformacao.Domain.Feedbacks;
 using Microsoft.EntityFrameworkCore;
 
 namespace AssistenteDesinformacao.Infrastructure.Persistencia;
@@ -6,6 +7,8 @@ namespace AssistenteDesinformacao.Infrastructure.Persistencia;
 public class BancoDeDados(DbContextOptions<BancoDeDados> opcoes) : DbContext(opcoes)
 {
     public DbSet<Materia> Materias => Set<Materia>();
+
+    public DbSet<Feedback> Feedbacks => Set<Feedback>();
 
     protected override void OnModelCreating(ModelBuilder modelo)
     {
@@ -19,6 +22,14 @@ public class BancoDeDados(DbContextOptions<BancoDeDados> opcoes) : DbContext(opc
             m.Property(x => x.Veiculo).IsRequired();
             m.HasIndex(x => x.Link).IsUnique();
             m.HasIndex(x => x.DataPublicacao);
+        });
+
+        modelo.Entity<Feedback>(f =>
+        {
+            f.ToTable("feedbacks");
+            f.Property<int>("Id").ValueGeneratedOnAdd();
+            f.HasKey("Id");
+            f.HasIndex(x => x.RespostaId).IsUnique();
         });
     }
 }
