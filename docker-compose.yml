@@ -3,6 +3,8 @@ services:
     image: ghcr.io/baautitz/assistente-desinformacao-politica:latest
     restart: unless-stopped
     env_file: .env
+    environment:
+      ConnectionStrings__Postgres: Host=db;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Database=${POSTGRES_DB}
     depends_on:
       db:
         condition: service_healthy

@@ -1,12 +1,16 @@
 using System.ClientModel;
 using AssistenteDesinformacao.Application.Analise;
+using AssistenteDesinformacao.Application.Coleta;
 using AssistenteDesinformacao.Application.Mensageria;
 using AssistenteDesinformacao.Application.Pesquisa;
 using AssistenteDesinformacao.Application.Sinteses;
 using AssistenteDesinformacao.Infrastructure.Analise;
+using AssistenteDesinformacao.Infrastructure.Coleta;
 using AssistenteDesinformacao.Infrastructure.Ia;
+using AssistenteDesinformacao.Infrastructure.Persistencia;
 using AssistenteDesinformacao.Infrastructure.Pesquisa;
 using AssistenteDesinformacao.Infrastructure.Sinteses;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,8 +46,44 @@ public static class InjecaoDeDependencias
         services.AddSingleton<IRedatorDeSintese, RedatorDeSinteseComIa>();
         services.AddTransient<ResponderConsulta>();
 
+        AdicionarColeta(services, config);
+
         return services;
     }
+
+    private static void AdicionarColeta(IServiceCollection services, IConfiguration config)
+    {
+        services.AddDbContext<BancoDeDados>(o =>
+            o.UseNpgsql(Obrigatorio(config, "ConnectionStrings:Postgres")));
+
+        var opcoes = new OpcoesDeColeta(
+            Inteiro(config, "COLETA_JANELA_DIAS", 90),
+            Inteiro(config, "COLETA_INTERVALO_MINUTOS", 60));
+        services.AddSingleton(opcoes);
+        services.AddSingleton(TimeProvider.System);
+
+        var arquivo = config["FONTES_ARQUIVO"] is { Length: > 0 } caminho
+            ? caminho
+            : Path.Combine(AppContext.BaseDirectory, "fontes.yaml");
+        services.AddSingleton<IFontesDeFeeds>(new FontesDeFeedsEmYaml(arquivo));
+        services.AddHttpClient<ILeitorDeFeed, LeitorDeFeedRss>(http =>
+        {
+            http.Timeout = TimeSpan.FromSeconds(30);
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("AssistenteDesinformacao/1.0");
+        });
+        services.AddScoped<IRepositorioDeMaterias, RepositorioDeMaterias>();
+        services.AddTransient<ColetarFeeds>();
+    }
+
+    /// <summary>Aplica as migrations pendentes. Chamado na inicialização do bot.</summary>
+    public static async Task MigrarBancoAsync(this IServiceProvider services, CancellationToken ct = default)
+    {
+        await using var escopo = services.CreateAsyncScope();
+        await escopo.ServiceProvider.GetRequiredService<BancoDeDados>().Database.MigrateAsync(ct);
+    }
+
+    private static int Inteiro(IConfiguration config, string chave, int padrao) =>
+        int.TryParse(config[chave], out var valor) && valor > 0 ? valor : padrao;
 
     private static string Obrigatorio(IConfiguration config, string chave) =>
         config[chave] is { Length: > 0 } valor

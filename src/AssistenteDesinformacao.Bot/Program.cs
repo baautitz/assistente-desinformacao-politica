@@ -10,5 +10,8 @@ var token = builder.Configuration["TELEGRAM_BOT_TOKEN"]
 builder.Services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(token));
 builder.Services.AdicionarInfraestrutura(builder.Configuration);
 builder.Services.AddHostedService<Worker>();
+builder.Services.AddHostedService<ColetorWorker>();
 
-builder.Build().Run();
+var app = builder.Build();
+await app.Services.MigrarBancoAsync();
+await app.RunAsync();

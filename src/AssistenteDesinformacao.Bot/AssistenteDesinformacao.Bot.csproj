@@ -13,6 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="fontes.yaml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\AssistenteDesinformacao.Application\AssistenteDesinformacao.Application.csproj" />
     <ProjectReference Include="..\AssistenteDesinformacao.Infrastructure\AssistenteDesinformacao.Infrastructure.csproj" />
   </ItemGroup>
