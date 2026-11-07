@@ -6,7 +6,7 @@ Você manda a mensagem. O bot identifica a alegação, procura o que matérias e
 
 Projeto da disciplina de Inteligência Artificial, curso de Sistemas de Informação, Centro Universitário Dinâmica das Cataratas.
 
-> Em desenvolvimento. O que está pronto e o que falta está nas [issues](../../issues).
+> Primeira entrega completa. Melhorias e pendências ficam nas [issues](../../issues).
 
 ## O que faz
 
@@ -15,6 +15,7 @@ Projeto da disciplina de Inteligência Artificial, curso de Sistemas de Informa�
 - Busca checagens na Google Fact Check Tools API e matérias de uma lista de feeds RSS.
 - Responde com um resumo neutro, os links e as datas das fontes.
 - Aceita 👍 ou 👎 em cada resposta, para avaliarmos se ela ajudou.
+- Comandos: `/start` explica o que o bot faz e não faz; `/metricas` (só para o `ADMIN_TELEGRAM_ID`) mostra votos e tempo médio.
 
 ## O que não faz
 
@@ -23,35 +24,110 @@ Projeto da disciplina de Inteligência Artificial, curso de Sistemas de Informa�
 - Não guarda mensagens nem identifica quem perguntou. Só ficam salvos o voto do 👍/👎 (sem texto) e as matérias coletadas dos feeds.
 - Se não achar nenhuma fonte, diz que não encontrou. Não inventa resposta.
 
-## Como subir
+## Variáveis de ambiente
 
-Precisa de Docker com Compose e de um servidor (ou sua máquina) com acesso à internet.
+Ficam no arquivo `.env` (modelo em [`.env.example`](.env.example)). As duas listas precisam andar juntas: ao criar uma variável nova, adicione nos dois lugares.
 
-1. Crie um bot no Telegram com o [@BotFather](https://t.me/BotFather) e guarde o token.
-2. Tenha uma chave de uma API de IA compatível com OpenAI e uma chave da Google Fact Check Tools API.
-3. Copie o arquivo de exemplo e preencha:
+| Variável | Obrigatória | Padrão | Para que serve |
+| --- | --- | --- | --- |
+| `TELEGRAM_BOT_TOKEN` | sim | - | Token do bot, gerado pelo [@BotFather](https://t.me/BotFather). |
+| `IA_URL_BASE` | sim | `https://api.openai.com/v1` | URL base do provedor de IA compatível com a API da OpenAI (OpenAI, OpenRouter, Groq, Ollama...). |
+| `IA_CHAVE` | sim | - | Chave de API do provedor de IA. |
+| `IA_MODELO_TEXTO` | sim | `gpt-4o-mini` | Modelo usado para extrair a alegação e redigir a síntese. |
+| `IA_MODELO_VISAO` | não | vazio | Modelo de visão para ler prints. Sem ele, o bot responde que só lê texto. |
+| `IA_MODELO_EMBEDDINGS` | não | vazio | Modelo de embeddings (ex.: `text-embedding-3-small`) do mesmo provedor. Com ele, a coleta gera o vetor de cada matéria nova e a consulta gera o da Alegação, e a busca combina sentido (pgvector) e texto. Sem ele, só texto. |
+| `GOOGLE_FACT_CHECK_API_KEY` | sim | - | Chave da Google Fact Check Tools API. |
+| `FACT_CHECK_IDIOMA` | não | `pt-BR` | Idioma das checagens buscadas. |
+| `ADMIN_TELEGRAM_ID` | não | vazio | ID numérico do Telegram de quem pode usar `/metricas`: consultas, votos 👍/👎 e tempo médio de resposta, só agregados e sem texto. Sem ele, o comando é ignorado. |
+| `LIMITE_CONSULTAS_POR_MINUTO` | não | `5` | Consultas por minuto permitidas a cada usuário. |
+| `COLETA_JANELA_DIAS` | não | `90` | Matérias mais antigas que isso são descartadas na coleta de RSS e ignoradas na busca. |
+| `COLETA_INTERVALO_MINUTOS` | não | `60` | Intervalo entre rodadas de coleta. Os feeds ficam em `src/AssistenteDesinformacao.Bot/fontes.yaml`. |
+| `TESTE_POSTGRES` | não | vazio | Só para testes: string de conexão de um Postgres descartável. Habilita os testes da busca textual e vetorial (eles recriam o banco). Precisa da extensão pgvector, por exemplo `docker run -p 55437:5432 -e POSTGRES_PASSWORD=x pgvector/pgvector:pg18`. |
+| `POSTGRES_USER` | sim | `bot` | Usuário do Postgres (lido pelo `docker compose`). |
+| `POSTGRES_PASSWORD` | sim | `troque-esta-senha` | Senha do Postgres. Troque antes de subir. |
+| `POSTGRES_DB` | sim | `desinformacao` | Nome do banco. |
+
+O Postgres do compose usa a imagem `pgvector/pgvector:pg18`, que já traz a extensão `pgvector`; a migration a ativa sozinha. Quem já tinha um volume criado com `postgres:18` pode trocar a imagem sem perder dados (mesma versão major). Matérias coletadas antes de configurar `IA_MODELO_EMBEDDINGS` continuam acháveis por texto, mas não entram na busca por sentido.
+
+O provedor de IA é configurado por URL base, chave e modelo, então dá para trocar de provedor sem mexer no código.
+
+## Deploy na VPS
+
+Qualquer VPS Linux com acesso à internet serve (os exemplos usam Ubuntu/Debian). O bot usa long polling, então não precisa abrir porta nem ter domínio.
+
+### 1. Preparar o servidor
+
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER   # saia e entre de novo na sessão SSH
+docker compose version          # confirma que o Compose está instalado
+```
+
+### 2. Clonar o repositório
+
+```bash
+git clone https://github.com/baautitz/assistente-desinformacao-politica.git
+cd assistente-desinformacao-politica
+```
+
+### 3. Configurar o `.env`
+
+1. Crie o bot com o [@BotFather](https://t.me/BotFather) e guarde o token.
+2. Tenha a chave do provedor de IA e a chave da Google Fact Check Tools API.
+3. Copie o exemplo e preencha todas as variáveis obrigatórias (tabela acima):
 
    ```bash
    cp .env.example .env
-   ```
-
-4. Suba:
-
-   ```bash
-   docker compose -f docker-compose.yml up -d
+   nano .env
+   chmod 600 .env
    ```
 
 O `.env` fica fora do repositório. Nunca faça commit dele.
 
-Para desenvolver, `docker compose up --build` builda a imagem do código local e expõe o Postgres na porta 5432 (usa o `docker-compose.override.yml`, que o Compose carrega sozinho). Por isso o passo 4 usa `-f docker-compose.yml`: na VPS o arquivo é ignorado e a imagem publicada é baixada.
+### 4. Subir
 
-O provedor de IA é configurado por URL base, chave e modelo, então dá para trocar de provedor sem mexer no código. Os modelos de texto, de imagem e de embeddings são configurados separadamente. Sem modelo de imagem, o bot só lê texto.
+```bash
+docker compose -f docker-compose.yml up -d
+```
+
+A imagem usa a tag `latest` porque o CI só publica `latest` e o SHA do commit; para fixar uma versão, troque no `docker-compose.yml` pela tag do SHA.
+
+O `-f docker-compose.yml` faz o Compose ignorar o `docker-compose.override.yml` (que é só para desenvolvimento) e baixar a imagem publicada em `ghcr.io/baautitz/assistente-desinformacao-politica`. Se o pacote estiver privado, faça `docker login ghcr.io` antes, com um token do GitHub com permissão `read:packages`.
+
+Confira com `docker compose -f docker-compose.yml ps`: `bot` e `db` devem estar `running`.
+
+### 5. Atualizar
+
+```bash
+git pull
+docker compose -f docker-compose.yml pull
+docker compose -f docker-compose.yml up -d
+```
+
+O volume `dados` do Postgres é preservado. Se o `.env.example` ganhou variáveis novas, adicione-as ao seu `.env` antes do `up`.
+
+### Logs e reinício
+
+```bash
+docker compose -f docker-compose.yml logs -f bot          # acompanha os logs do bot (Ctrl+C sai)
+docker compose -f docker-compose.yml logs --tail 100 bot  # últimas 100 linhas
+docker compose -f docker-compose.yml restart bot          # reinicia só o bot
+docker compose -f docker-compose.yml down                 # para tudo (os dados ficam no volume)
+```
+
+Os containers têm `restart: unless-stopped`, então voltam sozinhos após reboot da VPS. Depois de mudar o `.env`, rode `up -d` de novo: um `restart` não relê o arquivo.
+
+## Desenvolvimento local
+
+`docker compose up --build` builda a imagem do código local e expõe o Postgres na porta 5432 (usa o `docker-compose.override.yml`, que o Compose carrega sozinho). Sem modelo de imagem configurado, o bot só lê texto.
 
 ## Como rodar os testes
 
 ```bash
 dotnet test
 ```
+
+Para medir o filtro de neutralidade contra o modelo real, exporte `IA_URL_BASE`, `IA_CHAVE` e `IA_MODELO_TEXTO` (os mesmos do `.env`) e rode `dotnet test --filter ClassificadorDeNeutralidadeRealTests`. Sem essas variáveis, esses testes passam sem medir nada.
 
 ## Estrutura
 

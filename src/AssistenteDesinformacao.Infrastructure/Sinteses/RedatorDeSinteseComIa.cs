@@ -14,6 +14,7 @@ public sealed class RedatorDeSinteseComIa(IChatClient ia) : IRedatorDeSintese
         Resuma em até 3 frases curtas, em português simples, o que as fontes abaixo dizem sobre as alegações.
         Regras:
         - Use só o que está nas fontes. Não acrescente fatos.
+        - Ignore fontes que não tratam das alegações. Se nenhuma tratar, diga apenas que as fontes encontradas não falam diretamente sobre essa alegação.
         - Não diga por conta própria se algo é verdadeiro ou falso. Se uma agência classificou, atribua a ela ("segundo a agência X, ...").
         - Não recomende candidato, partido ou voto.
         - Não escreva links nem datas: eles são mostrados depois do resumo.

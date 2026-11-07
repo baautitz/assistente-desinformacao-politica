@@ -12,6 +12,11 @@ public sealed class ExtratorDeAlegacoesComIa(IChatClient ia) : IExtratorDeAlegac
         $"""
         Você recebe uma mensagem que circulou em grupos de mensagem.
         Liste as afirmações de fato verificáveis que ela faz (no máximo 3), uma por linha.
+        {RegrasDeSaida}
+        """;
+
+    internal const string RegrasDeSaida =
+        $"""
         Escreva cada afirmação como uma frase curta e objetiva em português, boa para buscar em sites de checagem.
         Não julgue se é verdade, não comente e não numere as linhas.
         Ignore opiniões, xingamentos e pedidos de voto.
@@ -28,7 +33,7 @@ public sealed class ExtratorDeAlegacoesComIa(IChatClient ia) : IExtratorDeAlegac
         return Interpretar(resposta.Text);
     }
 
-    private static List<Alegacao> Interpretar(string resposta) =>
+    internal static List<Alegacao> Interpretar(string resposta) =>
         resposta
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(linha => linha.TrimStart('-', '•', '*', ' ').Trim())
