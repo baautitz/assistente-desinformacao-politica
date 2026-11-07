@@ -34,15 +34,18 @@ Ficam no arquivo `.env` (modelo em [`.env.example`](.env.example)). As duas list
 | `IA_CHAVE` | sim | - | Chave de API do provedor de IA. |
 | `IA_MODELO_TEXTO` | sim | `gpt-4o-mini` | Modelo usado para extrair a alegação e redigir a síntese. |
 | `IA_MODELO_VISAO` | não | vazio | Modelo de visão para ler prints. Sem ele, o bot responde que só lê texto. |
+| `IA_MODELO_EMBEDDINGS` | não | vazio | Modelo de embeddings (ex.: `text-embedding-3-small`) do mesmo provedor. Com ele, a coleta gera o vetor de cada matéria nova e a consulta gera o da Alegação, e a busca combina sentido (pgvector) e texto. Sem ele, só texto. |
 | `GOOGLE_FACT_CHECK_API_KEY` | sim | - | Chave da Google Fact Check Tools API. |
 | `FACT_CHECK_IDIOMA` | não | `pt-BR` | Idioma das checagens buscadas. |
 | `LIMITE_CONSULTAS_POR_MINUTO` | não | `5` | Consultas por minuto permitidas a cada usuário. |
 | `COLETA_JANELA_DIAS` | não | `90` | Matérias mais antigas que isso são descartadas na coleta de RSS. |
 | `COLETA_INTERVALO_MINUTOS` | não | `60` | Intervalo entre rodadas de coleta. Os feeds ficam em `src/AssistenteDesinformacao.Bot/fontes.yaml`. |
-| `TESTE_POSTGRES` | não | vazio | Só para testes: string de conexão de um Postgres descartável. Habilita o teste da busca textual (ele recria o banco). |
+| `TESTE_POSTGRES` | não | vazio | Só para testes: string de conexão de um Postgres descartável. Habilita os testes da busca textual e vetorial (eles recriam o banco). Precisa da extensão pgvector, por exemplo `docker run -p 55437:5432 -e POSTGRES_PASSWORD=x pgvector/pgvector:pg18`. |
 | `POSTGRES_USER` | sim | `bot` | Usuário do Postgres (lido pelo `docker compose`). |
 | `POSTGRES_PASSWORD` | sim | `troque-esta-senha` | Senha do Postgres. Troque antes de subir. |
 | `POSTGRES_DB` | sim | `desinformacao` | Nome do banco. |
+
+O Postgres do compose usa a imagem `pgvector/pgvector:pg18`, que já traz a extensão `pgvector`; a migration a ativa sozinha. Quem já tinha um volume criado com `postgres:18` pode trocar a imagem sem perder dados (mesma versão major). Matérias coletadas antes de configurar `IA_MODELO_EMBEDDINGS` continuam acháveis por texto, mas não entram na busca por sentido.
 
 O provedor de IA é configurado por URL base, chave e modelo, então dá para trocar de provedor sem mexer no código.
 

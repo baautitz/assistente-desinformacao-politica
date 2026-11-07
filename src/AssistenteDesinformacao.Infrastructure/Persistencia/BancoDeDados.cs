@@ -15,6 +15,8 @@ public class BancoDeDados(DbContextOptions<BancoDeDados> opcoes) : DbContext(opc
 
     protected override void OnModelCreating(ModelBuilder modelo)
     {
+        modelo.HasPostgresExtension("vector");
+
         modelo.Entity<Materia>(m =>
         {
             m.ToTable("materias");
@@ -23,6 +25,15 @@ public class BancoDeDados(DbContextOptions<BancoDeDados> opcoes) : DbContext(opc
             m.Property(x => x.Titulo).IsRequired();
             m.Property(x => x.Resumo).IsRequired();
             m.Property(x => x.Veiculo).IsRequired();
+            // Provedores sem pgvector (InMemory dos testes) não guardam o vetor.
+            if (Database.IsNpgsql())
+                m.Property(x => x.Embedding)
+                    .HasColumnType("vector")
+                    .HasConversion(
+                        v => v == null ? null : new Pgvector.Vector(v),
+                        v => v == null ? null : v.ToArray());
+            else
+                m.Ignore(x => x.Embedding);
             m.HasIndex(x => x.Link).IsUnique();
             m.HasIndex(x => x.DataPublicacao);
         });

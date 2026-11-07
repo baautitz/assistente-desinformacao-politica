@@ -7,5 +7,5 @@ namespace AssistenteDesinformacao.Infrastructure.Persistencia;
 public sealed class FabricaDoBanco : IDesignTimeDbContextFactory<BancoDeDados>
 {
     public BancoDeDados CreateDbContext(string[] args) =>
-        new(new DbContextOptionsBuilder<BancoDeDados>().UseNpgsql("Host=localhost;Database=desinformacao").Options);
+        new(new DbContextOptionsBuilder<BancoDeDados>().UseNpgsql("Host=localhost;Database=desinformacao", npgsql => npgsql.UseVector()).Options);
 }

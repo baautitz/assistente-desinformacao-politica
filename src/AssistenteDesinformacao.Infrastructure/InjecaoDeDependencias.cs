@@ -60,11 +60,23 @@ public static class InjecaoDeDependencias
         });
         services.AddSingleton<IGeradorDeTermosDeBusca, GeradorDeTermosComIa>();
         services.AddScoped<IBuscaDeMaterias, BuscaDeMateriasNoPostgres>();
+        services.AddScoped<IBuscaVetorialDeMaterias, BuscaVetorialNoPostgres>();
+        // Opcional: sem IA_MODELO_EMBEDDINGS não há IGeradorDeEmbeddings e a busca usa só texto.
+        if (config["IA_MODELO_EMBEDDINGS"] is { Length: > 0 } modeloDeEmbeddings)
+        {
+            services.AddSingleton<IGeradorDeEmbeddings>(_ =>
+                new GeradorDeEmbeddingsComIa(
+                    new OpenAIClient(new ApiKeyCredential(ia.Chave), new OpenAIClientOptions { Endpoint = ia.UrlBase })
+                        .GetEmbeddingClient(modeloDeEmbeddings)
+                        .AsIEmbeddingGenerator()));
+        }
+
         services.AddScoped<IBuscadorDeFontes>(sp => new BuscadorCombinado(
             [
                 sp.GetRequiredService<BuscadorNaFactCheck>(),
                 new BuscadorDeMaterias(
-                    sp.GetRequiredService<IGeradorDeTermosDeBusca>(), sp.GetRequiredService<IBuscaDeMaterias>()),
+                    sp.GetRequiredService<IGeradorDeTermosDeBusca>(), sp.GetRequiredService<IBuscaDeMaterias>(),
+                    sp.GetService<IGeradorDeEmbeddings>(), sp.GetRequiredService<IBuscaVetorialDeMaterias>()),
             ],
             sp.GetRequiredService<ILogger<BuscadorCombinado>>()));
 
@@ -86,7 +98,7 @@ public static class InjecaoDeDependencias
     private static void AdicionarColeta(IServiceCollection services, IConfiguration config)
     {
         services.AddDbContext<BancoDeDados>(o =>
-            o.UseNpgsql(Obrigatorio(config, "ConnectionStrings:Postgres")));
+            o.UseNpgsql(Obrigatorio(config, "ConnectionStrings:Postgres"), npgsql => npgsql.UseVector()));
 
         var opcoes = new OpcoesDeColeta(
             Inteiro(config, "COLETA_JANELA_DIAS", 90),

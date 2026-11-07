@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AssistenteDesinformacao.Tests.Pesquisa;
 
+[Collection("Postgres")]
 public class BuscaTextualTests
 {
     private static readonly Materia Reportagem = new(
@@ -90,7 +91,7 @@ public class BuscaTextualTests
         if (Environment.GetEnvironmentVariable("TESTE_POSTGRES") is not { Length: > 0 } conexao)
             return;
 
-        var opcoes = new DbContextOptionsBuilder<BancoDeDados>().UseNpgsql(conexao).Options;
+        var opcoes = new DbContextOptionsBuilder<BancoDeDados>().UseNpgsql(conexao, n => n.UseVector()).Options;
         await using var banco = new BancoDeDados(opcoes);
         await banco.Database.EnsureDeletedAsync();
         await banco.Database.MigrateAsync();
