@@ -71,7 +71,8 @@ public sealed class ResponderConsulta(
         var fontes = encontradas
             .Where(GuardrailsDeNeutralidade.TemLink)
             .DistinctBy(f => f.Link)
-            .OrderByDescending(f => f.DataPublicacao)
+            .OrderByDescending(f => f is Checagem) // checagem de agência é a fonte principal: não perde vaga para matéria
+            .ThenByDescending(f => f.DataPublicacao)
             .Take(MaximoDeFontes)
             .ToList();
         if (fontes.Count == 0)

@@ -95,7 +95,7 @@ public class BuscaTextualTests
 
         var sintese = await caso.ExecutarAsync(new Consulta("As urnas não são auditadas"));
 
-        Assert.Equal([Reportagem.Link, Checagem1.Link], sintese.Fontes.Select(f => f.Link));
+        Assert.Equal([Checagem1.Link, Reportagem.Link], sintese.Fontes.Select(f => f.Link)); // checagem vem antes, mesmo mais antiga
         Assert.All(sintese.Fontes, f => Assert.NotNull(f.DataPublicacao));
         Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo); // link inventado continua barrado
     }
