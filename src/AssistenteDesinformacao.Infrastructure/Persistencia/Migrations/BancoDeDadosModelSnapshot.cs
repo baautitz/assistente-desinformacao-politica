@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Pgvector;
 
 #nullable disable
 
@@ -20,6 +21,7 @@ namespace AssistenteDesinformacao.Infrastructure.Persistencia.Migrations
                 .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("AssistenteDesinformacao.Domain.Coleta.Materia", b =>
@@ -32,6 +34,9 @@ namespace AssistenteDesinformacao.Infrastructure.Persistencia.Migrations
 
                     b.Property<DateTimeOffset>("DataPublicacao")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Vector>("Embedding")
+                        .HasColumnType("vector");
 
                     b.Property<string>("Link")
                         .IsRequired()
