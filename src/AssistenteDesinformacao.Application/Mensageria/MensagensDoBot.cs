@@ -25,4 +25,7 @@ public static class MensagensDoBot
     public const string ResumoPadrao = "Encontrei estas apurações sobre o assunto:";
 
     public const string Erro = "Não consegui responder agora. Tente de novo em alguns minutos.";
+
+    public const string LimiteAtingido =
+        "Você fez muitas consultas em pouco tempo. Aguarde cerca de um minuto e envie de novo.";
 }
