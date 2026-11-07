@@ -27,11 +27,17 @@ public class BancoDeDados(DbContextOptions<BancoDeDados> opcoes) : DbContext(opc
             m.Property(x => x.Veiculo).IsRequired();
             // Provedores sem pgvector (InMemory dos testes) não guardam o vetor.
             if (Database.IsNpgsql())
-                m.Property(x => x.Embedding)
+            {
+                var embedding = m.Property(x => x.Embedding)
                     .HasColumnType("vector")
                     .HasConversion(
                         v => v == null ? null : new Pgvector.Vector(v),
                         v => v == null ? null : v.ToArray());
+                embedding.Metadata.SetValueComparer(new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<float[]?>(
+                    (a, b) => ReferenceEquals(a, b) || (a != null && b != null && a.SequenceEqual(b)),
+                    v => v == null ? 0 : v.Aggregate(0, HashCode.Combine),
+                    v => v == null ? null : v.ToArray()));
+            }
             else
                 m.Ignore(x => x.Embedding);
             m.HasIndex(x => x.Link).IsUnique();
