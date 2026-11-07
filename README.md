@@ -6,7 +6,7 @@ Você manda a mensagem. O bot identifica a alegação, procura o que matérias e
 
 Projeto da disciplina de Inteligência Artificial, curso de Sistemas de Informação, Centro Universitário Dinâmica das Cataratas.
 
-> Em desenvolvimento. O que está pronto e o que falta está nas [issues](../../issues).
+> Primeira entrega completa. Melhorias e pendências ficam nas [issues](../../issues).
 
 ## O que faz
 
@@ -15,6 +15,7 @@ Projeto da disciplina de Inteligência Artificial, curso de Sistemas de Informa�
 - Busca checagens na Google Fact Check Tools API e matérias de uma lista de feeds RSS.
 - Responde com um resumo neutro, os links e as datas das fontes.
 - Aceita 👍 ou 👎 em cada resposta, para avaliarmos se ela ajudou.
+- Comandos: `/start` explica o que o bot faz e não faz; `/metricas` (só para o `ADMIN_TELEGRAM_ID`) mostra votos e tempo médio.
 
 ## O que não faz
 
