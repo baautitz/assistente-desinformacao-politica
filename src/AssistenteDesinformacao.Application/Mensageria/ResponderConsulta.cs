@@ -78,7 +78,8 @@ public sealed class ResponderConsulta(
         var resumo = (await redator.RedigirAsync(alegacoes, fontes, ct)).Trim();
         var valido = resumo.Length > 0
             && !GuardrailsDeNeutralidade.TemRecomendacaoEleitoral(resumo)
-            && !GuardrailsDeNeutralidade.CitaLinkForaDasFontes(resumo, fontes);
+            && !GuardrailsDeNeutralidade.CitaLinkForaDasFontes(resumo, fontes)
+            && !GuardrailsDeNeutralidade.TemVereditoPorContaPropria(resumo, fontes);
         return new Sintese(valido ? resumo : MensagensDoBot.ResumoPadrao, fontes);
     }
 
