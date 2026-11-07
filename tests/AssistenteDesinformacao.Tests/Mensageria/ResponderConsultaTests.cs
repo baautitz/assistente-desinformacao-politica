@@ -245,6 +245,14 @@ public class ResponderConsultaTests
     [InlineData("Quem merece o seu voto em outubro?")]
     [InlineData("Anule o voto, todos são iguais")]
     [InlineData("Vote 13 e mude o país")]
+    [InlineData("vote 22")]
+    [InlineData("VOTE 22!!!")]
+    [InlineData("vote22")]
+    [InlineData("Votem 22")]
+    [InlineData("vota 22")]
+    [InlineData("vote vinte e dois")]
+    [InlineData("digite 22 na urna")]
+    [InlineData("coloque o 22 na urna")]
     [InlineData("Voto útil: escolha o candidato do partido Y")]
     public void Regex_pega_formas_comuns_de_pedir_voto(string texto) =>
         Assert.True(GuardrailsDeNeutralidade.TemRecomendacaoEleitoral(texto));
