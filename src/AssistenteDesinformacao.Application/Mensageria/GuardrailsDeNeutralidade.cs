@@ -6,9 +6,12 @@ namespace AssistenteDesinformacao.Application.Mensageria;
 /// <summary>Regras validadas antes do envio: neutralidade eleitoral e link em toda síntese.</summary>
 public static partial class GuardrailsDeNeutralidade
 {
-    /// <summary>Pedido ou texto que induz a recomendar candidato, partido ou voto.</summary>
+    /// <summary>
+    /// Atalho barato para os casos óbvios, só para poupar uma chamada à IA. Não é a defesa: quem decide
+    /// os casos de verdade é o <see cref="IClassificadorDeNeutralidade"/>. Não acrescente variações aqui.
+    /// </summary>
     [GeneratedRegex(
-        @"\b(em\s+quem\s+(eu\s+)?(devo\s+|vou\s+|posso\s+)?votar|(devo|deveria|posso)\s+votar|vote\s+(em|no|na|nos|nas)\b|n[aã]o\s+vote\b|vot(e|ar)\s+(certo|errado)|melhor\s+(candidat[oa]|partido)|pior\s+(candidat[oa]|partido)|(recomend\w+|indic\w+|sugir\w+)\s+(um\s+|o\s+|a\s+)?(candidat[oa]|partido|voto)|candidat[oa]\s+(ideal|certo)|(apoi\w+|escolh\w+|elei\w+)\s+(o\s+|a\s+)?(candidat[oa]|partido)|(merece|mere[cç]em)\s+((o|seu|meu|nosso)\s+)*voto|voto\s+([uú]til|consciente)|anul(e|ar)\s+(o\s+|seu\s+)?voto|\bvot(e|em|a|ar|ando)\s*(n[oa]s?\s+|em\s+)?\d{2,5}\b|\bvot(e|em|a|ar)\s+(n[oa]s?\s+)?(vinte|trinta|quarenta|cinquenta|sessenta|setenta|oitenta|noventa|cem)\b|\b(digit\w+|coloqu\w+|aperte|aperten\w+|tecle\w*|marqu\w+)\s+(o\s+|no\s+)?\d{2,5}\s+na\s+urna)",
+        @"\b(em\s+quem\s+(eu\s+)?(devo\s+|vou\s+|posso\s+)?votar|(devo|deveria|posso)\s+votar|vote\s+(em|no|na|nos|nas)\b|n[aã]o\s+vote\b|vote\s*\d{2,5}\b|melhor\s+(candidat[oa]|partido)|pior\s+(candidat[oa]|partido))",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex RecomendacaoEleitoral();
 
