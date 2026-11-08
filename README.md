@@ -34,7 +34,7 @@ Projeto da disciplina de Inteligência Artificial, curso de Sistemas de Informa�
 ## O que não faz
 
 - Não diz se algo é verdadeiro ou falso. Quando uma agência classificou a alegação, o bot cita a classificação e o nome da agência.
-- Não recomenda candidato, partido ou voto (veja o filtro de neutralidade abaixo).
+- Não recomenda candidato, partido ou voto, nem quando o texto recebido pede isso (veja o filtro de neutralidade abaixo).
 - Não guarda mensagens nem identifica quem perguntou. Só ficam salvos o voto do 👍/👎 (sem texto), os tempos de resposta e as matérias coletadas dos feeds. O ID do usuário existe apenas na memória do limitador de consultas.
 - Se não achar nenhuma fonte, diz que não encontrou. Não inventa resposta.
 
@@ -43,13 +43,12 @@ Projeto da disciplina de Inteligência Artificial, curso de Sistemas de Informa�
 ```
 Telegram ──► Worker ──► ResponderConsulta
                           │
-                          ├─ 1. Filtro de neutralidade (texto do usuário)
-                          ├─ 2. Extrai alegações (texto, ou print via modelo de visão)
-                          ├─ 3. Busca fontes
+                          ├─ 1. Extrai alegações (texto, ou print via modelo de visão)
+                          ├─ 2. Busca fontes
                           │      ├─ Google Fact Check Tools API   (Checagens)
                           │      └─ Postgres: texto + pgvector    (Matérias dos RSS)
-                          ├─ 4. Redige a Síntese com a IA, só com o que as fontes dizem
-                          └─ 5. Valida antes de enviar (links, veredito, neutralidade)
+                          ├─ 3. Redige a Síntese com a IA, só com o que as fontes dizem
+                          └─ 4. Valida antes de enviar (links, veredito, neutralidade)
 
 ColetorWorker ──► lê os feeds de fontes.yaml de tempos em tempos ──► Postgres
 ```
@@ -58,7 +57,7 @@ Regras que o código garante antes de enviar qualquer resposta:
 
 - Toda Síntese traz pelo menos um link de uma fonte encontrada. Sem fonte, a resposta é "não encontrei apuração".
 - Veredito só aparece quando uma agência de checagem o publicou, e sempre com o nome dela.
-- **Filtro de neutralidade em duas camadas**: um atalho barato (regex) pega os casos óbvios ("em quem votar?", "vote 22"). Os demais passam por um classificador de IA (temperatura 0, resposta SIM/NAO). Na dúvida ou em caso de erro, **bloqueia**: só uma resposta clara "NAO" libera. O filtro vale para a mensagem do usuário, para as alegações lidas de prints e para o resumo gerado.
+- **Filtro de neutralidade sobre o que o bot escreve**: o usuário pode mandar qualquer texto, inclusive notícia sensacionalista ou sobre candidatos (é justamente o que o bot existe para conferir). Mas o resumo gerado pela IA nunca pode recomendar voto, candidato ou partido. Um atalho barato (regex) pega os casos óbvios ("vote 22", "melhor candidato") e os demais passam por um classificador de IA (temperatura 0, resposta SIM/NAO). Na dúvida ou em caso de erro, **bloqueia**: só uma resposta clara "NAO" libera. Se o resumo for barrado, o bot manda só a lista de fontes.
 - Checagens de agências têm prioridade sobre matérias no corte das 5 fontes citadas.
 
 Termos do domínio (Alegação, Fonte, Matéria, Checagem, Síntese, Feedback, Consulta) estão no [GLOSSARY.md](GLOSSARY.md).
