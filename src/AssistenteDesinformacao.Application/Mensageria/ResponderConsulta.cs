@@ -32,10 +32,21 @@ public sealed class ResponderConsulta(
         catch (Exception erro) when (erro is not OperationCanceledException)
         {
             // Nunca logar o texto da consulta: mensagens de usuário não são guardadas.
-            logger.LogError(erro, "Falha ao responder consulta");
+            if (EhFalhaDeRede(erro))
+                // Rede ou provedor fora do ar: uma linha basta, sem o muro de stack trace.
+                logger.LogError("Falha ao responder consulta: {Tipo}: {Mensagem}", erro.GetType().Name, PrimeiraLinha(erro));
+            else
+                logger.LogError(erro, "Falha ao responder consulta");
             return Mensagem(MensagensDoBot.Erro);
         }
     }
+
+    private static bool EhFalhaDeRede(Exception erro) =>
+        erro is HttpRequestException or TimeoutException or TaskCanceledException
+        || (erro is AggregateException agregado && agregado.InnerExceptions.All(EhFalhaDeRede))
+        || (erro.GetType().Name == "ClientResultException" && erro.InnerException is { } interna && EhFalhaDeRede(interna));
+
+    private static string PrimeiraLinha(Exception erro) => erro.Message.Split('\n')[0].Trim();
 
     private async Task<Sintese> ResponderAsync(Consulta consulta, CancellationToken ct)
     {

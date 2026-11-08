@@ -26,13 +26,16 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
     {
         var me = await bot.GetMe(stoppingToken);
         logger.LogInformation("Bot @{usuario} iniciado (long polling)", me.Username);
+        logger.LogInformation(_admin is null
+            ? "ADMIN_TELEGRAM_ID não configurado: o comando /metricas fica desativado"
+            : "Comando /metricas ativo para o administrador configurado");
 
         bot.StartReceiving(
             (cliente, update, ct) => update.CallbackQuery is { } clique
                 ? Votar(cliente, clique, ct)
                 : update.Message switch
             {
-                { Text: { } texto } mensagem when EhMetricas(texto) => EnviarMetricas(cliente, mensagem, ct),
+                { Text: { } texto } mensagem when ComandosDoBot.EhMetricas(texto) => EnviarMetricas(cliente, mensagem, ct),
                 { Text: { } texto } mensagem => Responder(cliente, mensagem.Chat.Id, IdDoUsuario(mensagem), texto, null, ct),
                 { Photo: { Length: > 0 } fotos } mensagem => Responder(cliente, mensagem.Chat.Id, IdDoUsuario(mensagem), null, fotos[^1], ct),
                 _ => Task.CompletedTask,
@@ -50,19 +53,30 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
 
     private static long IdDoUsuario(Message mensagem) => mensagem.From?.Id ?? mensagem.Chat.Id;
 
-    private static bool EhMetricas(string texto) => texto.Trim().StartsWith("/metricas", StringComparison.OrdinalIgnoreCase);
 
     // Só o admin configurado recebe resposta; para os demais o comando é ignorado. Só números agregados.
     private async Task EnviarMetricas(ITelegramBotClient cliente, Message mensagem, CancellationToken ct)
     {
-        if (_admin is null || IdDoUsuario(mensagem) != _admin)
+        if (_admin is null)
+        {
+            logger.LogInformation("Comando /metricas ignorado: ADMIN_TELEGRAM_ID não está configurado");
             return;
+        }
+
+        // O ID de quem pediu nunca vai para o log: só se era ou não o administrador.
+        if (IdDoUsuario(mensagem) != _admin)
+        {
+            logger.LogInformation("Comando /metricas ignorado: quem pediu não é o administrador");
+            return;
+        }
 
         await SemFalhar("Falha ao consultar as métricas", async () =>
         {
             using var escopo = escopos.CreateScope();
             var resumo = await escopo.ServiceProvider.GetRequiredService<ConsultarMetricas>().ExecutarAsync(ct);
             await cliente.SendMessage(mensagem.Chat.Id, MensagensDoBot.Metricas(resumo), cancellationToken: ct);
+            logger.LogInformation("Métricas enviadas ao administrador: {Consultas} consultas, {Uteis} 👍, {Inuteis} 👎",
+                resumo.Consultas, resumo.VotosUteis, resumo.VotosInuteis);
         });
     }
 
@@ -83,6 +97,7 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
     {
         var (resposta, botoes) = await Gerar(cliente, chat, usuario, texto, foto, ct);
         await cliente.SendMessage(chat, resposta, linkPreviewOptions: SemPrevia, replyMarkup: botoes, cancellationToken: ct);
+        logger.LogInformation("Resposta enviada ({Botoes})", botoes is null ? "sem pedido de feedback" : "com pedido de feedback");
     }
 
     // O voto grava só id da resposta, voto e data: nada do usuário nem da mensagem é guardado.
@@ -93,8 +108,13 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
             using var escopo = escopos.CreateScope();
             var registrar = escopo.ServiceProvider.GetRequiredService<RegistrarFeedback>();
             if (!await registrar.ExecutarAsync(clique.Data, ct))
+            {
+                logger.LogWarning("Clique em botão ignorado: não é um feedback válido");
                 return;
+            }
 
+            DadosDoBotao.TentarLer(clique.Data, out _, out var util);
+            logger.LogInformation("Feedback registrado: {Voto}", util ? "👍 útil" : "👎 não ajudou");
             await cliente.AnswerCallbackQuery(clique.Id, MensagensDoBot.FeedbackRegistrado, cancellationToken: ct);
         });
     }
@@ -114,10 +134,16 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
     private async Task<(string Texto, InlineKeyboardMarkup? Botoes)> Gerar(ITelegramBotClient cliente, long chat, long usuario, string? texto, PhotoSize? foto, CancellationToken ct)
     {
         if (texto?.Trim().StartsWith("/start", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            logger.LogInformation("Comando /start");
             return (MensagensDoBot.Inicio, null);
+        }
 
         if (!limitador.TentarRegistrar(usuario))
+        {
+            logger.LogInformation("Consulta recusada: limite de consultas por minuto atingido");
             return (MensagensDoBot.LimiteAtingido, null);
+        }
 
         try
         {
