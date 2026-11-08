@@ -42,7 +42,13 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
             },
             (_, erro, _, _) =>
             {
-                logger.LogError(erro, "Erro no polling do Telegram");
+                // Falha do lado do Telegram (5xx) ou de rede é passageira: o cliente tenta de novo sozinho, então basta uma linha.
+                if (erro is Telegram.Bot.Exceptions.ApiRequestException { ErrorCode: >= 500 } api)
+                    logger.LogWarning("Telegram indisponível ({Codigo}: {Motivo}); tentando de novo", api.ErrorCode, api.Message);
+                else if (erro is HttpRequestException or TaskCanceledException)
+                    logger.LogWarning("Sem conexão com o Telegram ({Motivo}); tentando de novo", erro.Message);
+                else
+                    logger.LogError(erro, "Erro no polling do Telegram");
                 return Task.CompletedTask;
             },
             new ReceiverOptions { AllowedUpdates = [UpdateType.Message, UpdateType.CallbackQuery] },
