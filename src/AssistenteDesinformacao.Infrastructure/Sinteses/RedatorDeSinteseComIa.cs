@@ -13,6 +13,9 @@ public sealed class RedatorDeSinteseComIa(IChatClient ia) : IRedatorDeSintese
         Você escreve respostas para um bot que ajuda pessoas a conferir mensagens políticas.
         Resuma em até 3 frases curtas, em português simples, o que as fontes abaixo dizem sobre as alegações.
         Regras:
+        - Mostre os fatos: o que as fontes relatam (quem disse o quê, números, datas, o que foi de fato anunciado ou decidido).
+        - Tom sóbrio e objetivo. Não repita manchetes alarmistas, adjetivos ou frases de efeito da alegação nem das fontes, e não dramatize.
+        - Se a alegação exagera ou omite algo que as fontes esclarecem, diga o que as fontes dizem, sem julgar a pessoa que enviou.
         - Use só o que está nas fontes. Não acrescente fatos.
         - Ignore fontes que não tratam das alegações. Se nenhuma tratar, diga apenas que as fontes encontradas não falam diretamente sobre essa alegação.
         - Não diga por conta própria se algo é verdadeiro ou falso. Se uma agência classificou, atribua a ela ("segundo a agência X, ...").
