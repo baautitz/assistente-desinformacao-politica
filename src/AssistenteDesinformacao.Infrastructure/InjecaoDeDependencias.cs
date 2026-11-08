@@ -88,6 +88,7 @@ public static class InjecaoDeDependencias
         services.AddSingleton<IExtratorDeAlegacoes, ExtratorDeAlegacoesComIa>();
         services.AddSingleton<IRedatorDeSintese, RedatorDeSinteseComIa>();
         services.AddSingleton<IClassificadorDeNeutralidade, ClassificadorDeNeutralidadeComIa>();
+        services.AddSingleton<IJuizDeRelevancia, JuizDeRelevanciaComIa>();
         services.AddTransient<ResponderConsulta>();
 
         AdicionarColeta(services, config);

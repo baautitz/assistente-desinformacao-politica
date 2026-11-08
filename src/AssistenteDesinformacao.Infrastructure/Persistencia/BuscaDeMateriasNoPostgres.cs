@@ -12,7 +12,7 @@ public sealed class BuscaDeMateriasNoPostgres(BancoDeDados banco) : IBuscaDeMate
     public async Task<IReadOnlyList<Materia>> BuscarAsync(
         IReadOnlyList<string> termos, int limite, DateTimeOffset desde, CancellationToken ct)
     {
-        var achadas = new Dictionary<Uri, Materia>();
+        var rankings = new List<IReadOnlyList<Materia>>();
         foreach (var termo in termos)
         {
             // websearch_to_tsquery aceita texto livre sem lançar erro de sintaxe.
@@ -22,10 +22,10 @@ public sealed class BuscaDeMateriasNoPostgres(BancoDeDados banco) : IBuscaDeMate
                 .ThenByDescending(m => m.DataPublicacao)
                 .Take(limite)
                 .ToListAsync(ct);
-            foreach (var materia in resultado)
-                achadas.TryAdd(materia.Link, materia);
+            rankings.Add(resultado);
         }
 
-        return achadas.Values.OrderByDescending(m => m.DataPublicacao).Take(limite).ToList();
+        // Relevância primeiro: quem aparece bem em vários termos vence, em vez de ordenar por data.
+        return FusaoDeRankings.Combinar(rankings, limite);
     }
 }

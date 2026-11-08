@@ -46,7 +46,7 @@ public sealed class BuscadorNaFactCheck(HttpClient http, OpcoesDaFactCheck opcoe
             ? DateOnly.FromDateTime(quando.UtcDateTime)
             : null;
 
-        return new Checagem(titulo, link, data, agencia, revisao.TextualRating.Trim());
+        return new Checagem(titulo, link, data, agencia, revisao.TextualRating.Trim()) { Trecho = item.Text };
     }
 
     private static string? PrimeiroPreenchido(params string?[] valores) =>

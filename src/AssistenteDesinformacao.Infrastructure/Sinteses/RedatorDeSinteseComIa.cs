@@ -11,8 +11,11 @@ public sealed class RedatorDeSinteseComIa(IChatClient ia) : IRedatorDeSintese
     private const string Instrucoes =
         """
         Você escreve respostas para um bot que ajuda pessoas a conferir mensagens políticas.
-        Resuma em até 3 frases curtas, em português simples, o que as fontes abaixo dizem sobre as alegações.
+        Escreva um resumo curto (2 a 4 frases), em português simples, do que as fontes abaixo dizem sobre as alegações.
         Regras:
+        - Comece pelo que as fontes relatam sobre a alegação. Se uma agência de checagem a classificou, diga logo no início
+          e atribua: "A agência X classificou como falso/enganoso/...", e explique em uma frase o motivo que a fonte apresenta.
+        - Se as fontes mostram que a alegação está certa em parte, errada em parte ou sem contexto, diga o que cada fonte esclarece.
         - Mostre os fatos: o que as fontes relatam (quem disse o quê, números, datas, o que foi de fato anunciado ou decidido).
         - Tom sóbrio e objetivo. Não repita manchetes alarmistas, adjetivos ou frases de efeito da alegação nem das fontes, e não dramatize.
         - Se a alegação exagera ou omite algo que as fontes esclarecem, diga o que as fontes dizem, sem julgar a pessoa que enviou.
@@ -47,6 +50,8 @@ public sealed class RedatorDeSinteseComIa(IChatClient ia) : IRedatorDeSintese
             texto.Append("- ").Append(fonte.Veiculo).Append(": ").Append(fonte.Titulo);
             if (fonte is Checagem checagem)
                 texto.Append(" (classificação da agência: ").Append(checagem.Classificacao).Append(')');
+            if (!string.IsNullOrWhiteSpace(fonte.Trecho))
+                texto.Append(" — ").Append(fonte.Trecho);
             texto.AppendLine();
         }
 

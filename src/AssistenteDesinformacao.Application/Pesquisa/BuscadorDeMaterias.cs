@@ -58,5 +58,8 @@ public sealed class BuscadorDeMaterias(
     }
 
     private static Fonte ParaFonte(Materia m) =>
-        new(m.Titulo, m.Link, DateOnly.FromDateTime(m.DataPublicacao.UtcDateTime), m.Veiculo);
+        new(m.Titulo, m.Link, DateOnly.FromDateTime(m.DataPublicacao.UtcDateTime), m.Veiculo)
+        {
+            Trecho = m.Resumo.Length > 400 ? m.Resumo[..400] : m.Resumo,
+        };
 }

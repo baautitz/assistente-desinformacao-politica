@@ -15,9 +15,11 @@ public sealed class ResponderConsulta(
     IBuscadorDeFontes buscador,
     IRedatorDeSintese redator,
     IClassificadorDeNeutralidade neutralidade,
-    ILogger<ResponderConsulta> logger)
+    ILogger<ResponderConsulta> logger,
+    IJuizDeRelevancia? juiz = null)
 {
     public const int MaximoDeAlegacoes = 3;
+    public const int MaximoDeTentativasDeBusca = 3;
     public const int MaximoDeFontes = 5;
     public const int MaximoDeBytesDaImagem = 5 * 1024 * 1024;
 
@@ -59,17 +61,7 @@ public sealed class ResponderConsulta(
         if (alegacoes.Count == 0)
             return Mensagem(MensagensDoBot.SemAlegacao);
 
-        var encontradas = new List<Fonte>();
-        foreach (var alegacao in alegacoes)
-            encontradas.AddRange(await buscador.BuscarAsync(alegacao, ct));
-
-        var fontes = encontradas
-            .Where(GuardrailsDeNeutralidade.TemLink)
-            .DistinctBy(f => f.Link)
-            .OrderByDescending(f => f is Checagem) // checagem de agência é a fonte principal: não perde vaga para matéria
-            .ThenByDescending(f => f.DataPublicacao)
-            .Take(MaximoDeFontes)
-            .ToList();
+        var fontes = await BuscarFontesRelevantesAsync(alegacoes, ct);
         if (fontes.Count == 0)
             return Mensagem(MensagensDoBot.SemApuracao);
 
@@ -79,6 +71,41 @@ public sealed class ResponderConsulta(
             && !GuardrailsDeNeutralidade.CitaLinkForaDasFontes(resumo, fontes)
             && !GuardrailsDeNeutralidade.TemVereditoPorContaPropria(resumo, fontes);
         return new Sintese(valido ? resumo : MensagensDoBot.ResumoPadrao, fontes);
+    }
+
+    /// <summary>
+    /// Busca, confere se as fontes tratam mesmo da alegação e, se nenhuma serviu, reescreve a alegação e busca de novo
+    /// (até <see cref="MaximoDeTentativasDeBusca"/> vezes). Sem fonte relevante, devolve vazio: melhor dizer que não achou do que listar lixo.
+    /// </summary>
+    private async Task<IReadOnlyList<Fonte>> BuscarFontesRelevantesAsync(IReadOnlyList<Alegacao> alegacoes, CancellationToken ct)
+    {
+        var atuais = alegacoes;
+        for (var tentativa = 1; ; tentativa++)
+        {
+            var encontradas = new List<Fonte>();
+            foreach (var alegacao in atuais)
+                encontradas.AddRange(await buscador.BuscarAsync(alegacao, ct));
+
+            var validas = encontradas.Where(GuardrailsDeNeutralidade.TemLink).DistinctBy(f => f.Link).ToList();
+            // Checagem de agência é a fonte principal (mais recente primeiro); as matérias seguem a ordem de relevância da busca.
+            var candidatas = validas.Where(f => f is Checagem).OrderByDescending(f => f.DataPublicacao)
+                .Concat(validas.Where(f => f is not Checagem))
+                .ToList();
+
+            var relevantes = candidatas.Count == 0 || juiz is null
+                ? candidatas
+                : await juiz.FiltrarAsync(alegacoes, candidatas, ct);
+            if (relevantes.Count > 0)
+                return relevantes.Take(MaximoDeFontes).ToList();
+
+            if (juiz is null || tentativa >= MaximoDeTentativasDeBusca)
+                return [];
+
+            var reformuladas = new List<Alegacao>();
+            foreach (var alegacao in alegacoes)
+                reformuladas.Add(await juiz.ReformularAsync(alegacao, tentativa, ct));
+            atuais = reformuladas;
+        }
     }
 
     /// <summary>
