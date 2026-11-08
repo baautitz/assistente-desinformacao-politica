@@ -1,3 +1,4 @@
+using AssistenteDesinformacao.Domain.Sinteses;
 using AssistenteDesinformacao.Application.Feedbacks;
 using AssistenteDesinformacao.Application.Limites;
 using System.Diagnostics;
@@ -121,13 +122,24 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
             if (foto is { FileSize: > ResponderConsulta.MaximoDeBytesDaImagem })
                 return (MensagensDoBot.ImagemGrande, null);
 
-            await cliente.SendChatAction(chat, ChatAction.Typing, cancellationToken: ct);
+            // O "digitando..." do Telegram some em ~5s, então é renovado até a resposta ficar pronta.
+            using var terminou = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            var digitando = MostrarDigitando(cliente, chat, terminou.Token);
 
             var cronometro = Stopwatch.StartNew();
             using var escopo = escopos.CreateScope();
             var casoDeUso = escopo.ServiceProvider.GetRequiredService<ResponderConsulta>();
             var consulta = foto is null ? new Consulta(texto!) : Consulta.DePrint(await Baixar(cliente, foto, ct));
-            var sintese = await casoDeUso.ExecutarAsync(consulta, ct);
+            Sintese sintese;
+            try
+            {
+                sintese = await casoDeUso.ExecutarAsync(consulta, ct);
+            }
+            finally
+            {
+                await terminou.CancelAsync();
+                await digitando;
+            }
             await RegistrarTempo(escopo, cronometro.Elapsed, ct);
             // Só uma Síntese real (com fontes) pede avaliação; avisos e recusas não.
             return (FormatadorDeResposta.Formatar(sintese), sintese.EncontrouFontes ? Botoes() : null);
@@ -137,6 +149,26 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
             // Nunca logar o texto da consulta: mensagens de usuário não são guardadas.
             logger.LogError(erro, "Falha ao responder consulta");
             return (MensagensDoBot.Erro, null);
+        }
+    }
+
+    private static async Task MostrarDigitando(ITelegramBotClient cliente, long chat, CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await cliente.SendChatAction(chat, ChatAction.Typing, cancellationToken: ct);
+                await Task.Delay(TimeSpan.FromSeconds(4), ct);
+            }
+        }
+        catch (Exception) when (ct.IsCancellationRequested)
+        {
+            // Resposta pronta (ou cancelamento): o indicador simplesmente para.
+        }
+        catch (Exception)
+        {
+            // Falha no indicador não pode atrapalhar a resposta.
         }
     }
 
