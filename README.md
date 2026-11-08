@@ -101,6 +101,7 @@ Ficam no arquivo `.env` (modelo em [`.env.example`](.env.example)). O `.env` e o
 | `IA_URL_BASE` | sim | `https://api.openai.com/v1` | URL base do provedor de IA compatível com a API da OpenAI (OpenAI, OpenRouter, Groq, Ollama...). |
 | `IA_CHAVE` | sim | - | Chave de API do provedor de IA. |
 | `IA_MODELO_TEXTO` | sim | `gpt-4o-mini` | Modelo usado para extrair a alegação, redigir a síntese e classificar a neutralidade. |
+| `IA_CAMPOS_EXTRAS` | não | vazio | Objeto JSON com campos extras enviados em toda chamada de chat, para opções que só alguns provedores aceitam. No MiniMax, `{"thinking":{"type":"disabled"}}` desliga o raciocínio e a resposta cai de ~60s para ~2s. Outros provedores podem recusar campos desconhecidos. |
 | `IA_MODELO_VISAO` | não | vazio | Modelo de visão para ler prints. Sem ele, o bot responde que só lê texto. |
 | `IA_MODELO_EMBEDDINGS` | não | vazio | Modelo de embeddings (ex.: `text-embedding-3-small`) do mesmo provedor. Com ele, a coleta gera o vetor de cada matéria nova e a consulta gera o da Alegação, e a busca combina sentido (pgvector) e texto. Sem ele, só texto. |
 | `GOOGLE_FACT_CHECK_API_KEY` | sim | - | Chave da Google Fact Check Tools API. |

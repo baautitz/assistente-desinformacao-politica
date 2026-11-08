@@ -1,5 +1,6 @@
 using System.Net;
 using System.ClientModel;
+using System.ClientModel.Primitives;
 using AssistenteDesinformacao.Application.Analise;
 using AssistenteDesinformacao.Application.Coleta;
 using AssistenteDesinformacao.Application.Feedbacks;
@@ -32,9 +33,12 @@ public static class InjecaoDeDependencias
             Obrigatorio(config, "IA_CHAVE"),
             Obrigatorio(config, "IA_MODELO_TEXTO"));
 
+        var camposExtras = InjetorDeCamposNaRequisicao.Ler(config["IA_CAMPOS_EXTRAS"]);
+        OpenAIClient NovoClienteDeIa() => ClienteDeIa(ia, camposExtras);
+
         services.AddSingleton<IChatClient>(sp =>
             new ClienteComLog(
-                new OpenAIClient(new ApiKeyCredential(ia.Chave), new OpenAIClientOptions { Endpoint = ia.UrlBase })
+                NovoClienteDeIa()
                     .GetChatClient(ia.ModeloDeTexto)
                     .AsIChatClient()
                     .SemRaciocinio(),
@@ -44,7 +48,7 @@ public static class InjecaoDeDependencias
         {
             services.AddSingleton<IExtratorDeAlegacoesDeImagem>(_ =>
                 new ExtratorDeAlegacoesDeImagemComIa(
-                    new OpenAIClient(new ApiKeyCredential(ia.Chave), new OpenAIClientOptions { Endpoint = ia.UrlBase })
+                    NovoClienteDeIa()
                         .GetChatClient(modeloDeVisao)
                         .AsIChatClient()
                         .SemRaciocinio()));
@@ -71,7 +75,7 @@ public static class InjecaoDeDependencias
         {
             services.AddSingleton<IGeradorDeEmbeddings>(_ =>
                 new GeradorDeEmbeddingsComIa(
-                    new OpenAIClient(new ApiKeyCredential(ia.Chave), new OpenAIClientOptions { Endpoint = ia.UrlBase })
+                    ClienteDeIa(ia, null) // embeddings não recebem os campos extras do chat
                         .GetEmbeddingClient(modeloDeEmbeddings)
                         .AsIEmbeddingGenerator()));
         }
@@ -146,6 +150,24 @@ public static class InjecaoDeDependencias
 
     private static int Inteiro(IConfiguration config, string chave, int padrao) =>
         int.TryParse(config[chave], out var valor) && valor > 0 ? valor : padrao;
+
+    /// <summary>
+    /// Cliente do provedor de IA com limite de tempo e uma única nova tentativa: sem isso, um modelo lento deixa o usuário esperando
+    /// minutos (o padrão é 100s por chamada e 3 repetições).
+    /// </summary>
+    private static OpenAIClient ClienteDeIa(OpcoesDeIa ia, System.Text.Json.Nodes.JsonObject? camposExtras)
+    {
+        var opcoes = new OpenAIClientOptions
+        {
+            Endpoint = ia.UrlBase,
+            NetworkTimeout = TimeSpan.FromSeconds(60),
+            RetryPolicy = new ClientRetryPolicy(maxRetries: 1),
+        };
+        if (camposExtras is not null)
+            opcoes.Transport = new HttpClientPipelineTransport(
+                new HttpClient(new InjetorDeCamposNaRequisicao(camposExtras, new HttpClientHandler())));
+        return new OpenAIClient(new ApiKeyCredential(ia.Chave), opcoes);
+    }
 
     private static IChatClient SemRaciocinio(this IChatClient cliente) => new ClienteSemRaciocinio(cliente);
 
