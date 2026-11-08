@@ -108,22 +108,6 @@ public class ResponderConsultaTests
     }
 
     [Theory]
-    [InlineData("Em quem eu devo votar?")]
-    [InlineData("Qual o melhor candidato a presidente?")]
-    [InlineData("Vote no 13!")]
-    public async Task Pedido_de_recomendacao_eleitoral_e_bloqueado_sem_chamar_a_ia(string texto)
-    {
-        var redator = new RedatorFalso("resumo");
-        var caso = Criar(["alegação"], [ChecagemRecente], redator);
-
-        var sintese = await caso.ExecutarAsync(new Consulta(texto));
-
-        Assert.Equal(MensagensDoBot.RecomendacaoEleitoral, sintese.Resumo);
-        Assert.Empty(sintese.Fontes);
-        Assert.Null(redator.FontesRecebidas);
-    }
-
-    [Theory]
     [InlineData("Por isso, vote no candidato X.")]
     [InlineData("O melhor candidato é o Y.")]
     public async Task Resumo_com_recomendacao_eleitoral_vira_resposta_padrao(string resumoDaIa)
@@ -148,18 +132,6 @@ public class ResponderConsultaTests
     }
 
     private static readonly IExtratorDeAlegacoesDeImagem SemVisao = new ExtratorDeImagemFalso([], disponivel: false);
-
-    [Fact]
-    public async Task Print_com_pedido_eleitoral_e_bloqueado_sem_chamar_a_ia()
-    {
-        var redator = new RedatorFalso("resumo");
-        var caso = Criar(["Em quem eu devo votar?"], [ChecagemRecente], redator);
-
-        var sintese = await caso.ExecutarAsync(Consulta.DePrint(new Imagem([1], "image/jpeg")));
-
-        Assert.Equal(MensagensDoBot.RecomendacaoEleitoral, sintese.Resumo);
-        Assert.Null(redator.FontesRecebidas);
-    }
 
     [Fact]
     public async Task Print_sem_alegacao_sem_fonte_ou_com_resumo_invalido_segue_os_guardrails()
@@ -257,27 +229,28 @@ public class ResponderConsultaTests
     public void Regex_nao_bloqueia_afirmacao_de_fato(string texto) =>
         Assert.False(GuardrailsDeNeutralidade.TemRecomendacaoEleitoral(texto));
 
-    [Fact]
-    public async Task Parafrase_que_a_regex_nao_pega_e_bloqueada_pelo_classificador()
+    [Theory]
+    [InlineData("Em quem eu devo votar?")]
+    [InlineData("Bolsa Família será cortado em 2 anos, diz coordenadora de candidato")]
+    public async Task Texto_do_usuario_nao_e_bloqueado_so_o_que_o_bot_escreve(string texto)
     {
-        var redator = new RedatorFalso("resumo");
-        var caso = Criar(["alegação"], [ChecagemRecente], redator, new ClassificadorDeNeutralidadeFalso(t => t.Contains("fulano")));
+        var redator = new RedatorFalso("resumo neutro");
+        var caso = Criar(["alegação"], [ChecagemRecente], redator, new ClassificadorDeNeutralidadeFalso(t => t.Contains("votar") || t.Contains("candidato")));
 
-        var sintese = await caso.ExecutarAsync(new Consulta("Pra mim o fulano é o único que presta, concorda?"));
+        var sintese = await caso.ExecutarAsync(new Consulta(texto));
 
-        Assert.Equal(MensagensDoBot.RecomendacaoEleitoral, sintese.Resumo);
-        Assert.Null(redator.FontesRecebidas);
+        Assert.Equal("resumo neutro", sintese.Resumo);
+        Assert.Equal([ChecagemRecente], sintese.Fontes);
     }
 
     [Fact]
-    public async Task Alegacao_extraida_do_print_com_parafrase_e_bloqueada_pelo_classificador()
+    public async Task Resumo_da_ia_com_recomendacao_obvia_vira_resposta_padrao()
     {
-        var caso = Criar(["fulano é o candidato que merece confiança"], [ChecagemRecente], new RedatorFalso("resumo"),
-            new ClassificadorDeNeutralidadeFalso(t => t.Contains("merece confiança")));
+        var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso("Fica a dica: vote no 13."));
 
-        var sintese = await caso.ExecutarAsync(Consulta.DePrint(new Imagem([1], "image/jpeg")));
+        var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
 
-        Assert.Equal(MensagensDoBot.RecomendacaoEleitoral, sintese.Resumo);
+        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
     }
 
     [Fact]

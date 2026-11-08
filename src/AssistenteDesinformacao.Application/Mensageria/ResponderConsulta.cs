@@ -45,16 +45,11 @@ public sealed class ResponderConsulta(
             if (imagem.Conteudo.Length > MaximoDeBytesDaImagem)
                 return Mensagem(MensagensDoBot.ImagemGrande);
             extraidas = await extratorDeImagem.ExtrairAsync(imagem, ct);
-            foreach (var extraida in extraidas)
-                if (await InduzVotoAsync(extraida.Texto, ct))
-                    return Mensagem(MensagensDoBot.RecomendacaoEleitoral);
         }
         else
         {
             if (string.IsNullOrWhiteSpace(consulta.Texto))
                 return Mensagem(MensagensDoBot.SemAlegacao);
-            if (await InduzVotoAsync(consulta.Texto, ct))
-                return Mensagem(MensagensDoBot.RecomendacaoEleitoral);
             extraidas = await extrator.ExtrairAsync(consulta.Texto, ct);
         }
 
@@ -86,7 +81,10 @@ public sealed class ResponderConsulta(
         return new Sintese(valido ? resumo : MensagensDoBot.ResumoPadrao, fontes);
     }
 
-    /// <summary>Regex primeiro (barata e sem rede); se passar, o classificador julga o sentido.</summary>
+    /// <summary>
+    /// A regra é sobre o que o BOT diz, não sobre o que o usuário envia: só o resumo gerado passa por aqui.
+    /// Regex primeiro (barata e sem rede); se passar, o classificador julga o sentido.
+    /// </summary>
     private async Task<bool> InduzVotoAsync(string texto, CancellationToken ct) =>
         GuardrailsDeNeutralidade.TemRecomendacaoEleitoral(texto) || await neutralidade.InduzVotoAsync(texto, ct);
 
