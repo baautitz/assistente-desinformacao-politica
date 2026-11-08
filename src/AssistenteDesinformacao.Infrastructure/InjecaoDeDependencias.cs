@@ -35,7 +35,8 @@ public static class InjecaoDeDependencias
         services.AddSingleton<IChatClient>(_ =>
             new OpenAIClient(new ApiKeyCredential(ia.Chave), new OpenAIClientOptions { Endpoint = ia.UrlBase })
                 .GetChatClient(ia.ModeloDeTexto)
-                .AsIChatClient());
+                .AsIChatClient()
+                .SemRaciocinio());
 
         if (config["IA_MODELO_VISAO"] is { Length: > 0 } modeloDeVisao)
         {
@@ -43,7 +44,8 @@ public static class InjecaoDeDependencias
                 new ExtratorDeAlegacoesDeImagemComIa(
                     new OpenAIClient(new ApiKeyCredential(ia.Chave), new OpenAIClientOptions { Endpoint = ia.UrlBase })
                         .GetChatClient(modeloDeVisao)
-                        .AsIChatClient()));
+                        .AsIChatClient()
+                        .SemRaciocinio()));
         }
         else
         {
@@ -141,6 +143,8 @@ public static class InjecaoDeDependencias
 
     private static int Inteiro(IConfiguration config, string chave, int padrao) =>
         int.TryParse(config[chave], out var valor) && valor > 0 ? valor : padrao;
+
+    private static IChatClient SemRaciocinio(this IChatClient cliente) => new ClienteSemRaciocinio(cliente);
 
     private static string Obrigatorio(IConfiguration config, string chave) =>
         config[chave] is { Length: > 0 } valor

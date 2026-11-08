@@ -1,10 +1,10 @@
 using AssistenteDesinformacao.Application.Mensageria;
-using System.Text.RegularExpressions;
+using AssistenteDesinformacao.Infrastructure.Ia;
 using Microsoft.Extensions.AI;
 
 namespace AssistenteDesinformacao.Infrastructure.Analise;
 
-public sealed partial class ClassificadorDeNeutralidadeComIa(IChatClient ia) : IClassificadorDeNeutralidade
+public sealed class ClassificadorDeNeutralidadeComIa(IChatClient ia) : IClassificadorDeNeutralidade
 {
     internal const string Sim = "SIM";
     internal const string Nao = "NAO";
@@ -35,10 +35,7 @@ public sealed partial class ClassificadorDeNeutralidadeComIa(IChatClient ia) : I
     /// <summary>Só um "NAO" claro libera; qualquer outra resposta bloqueia.</summary>
     public static bool Interpretar(string? resposta) =>
         !string.Equals(
-            (resposta is null ? null : Raciocinio().Replace(resposta, ""))?.Trim().Trim('.', '"', '\'', '*', ' ').Replace("Ã", "A").Replace("ã", "a"),
+            ClienteSemRaciocinio.Remover(resposta).Trim('.', '"', '\'', '*', ' ').Replace("Ã", "A").Replace("ã", "a"),
             Nao, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Modelos que "pensam" em voz alta (ex.: MiniMax) abrem a resposta com um bloco think; ele não é a resposta.</summary>
-    [GeneratedRegex("<think>.*?</think>", RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex Raciocinio();
 }
