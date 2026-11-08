@@ -20,6 +20,8 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
     // Opcional: sem ADMIN_TELEGRAM_ID válido, o comando /metricas não existe (é ignorado).
     private readonly long? _admin = long.TryParse(config["ADMIN_TELEGRAM_ID"], out var id) ? id : null;
 
+    private static readonly TimeSpan LimiteDaConsulta = TimeSpan.FromSeconds(120);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var me = await bot.GetMe(stoppingToken);
@@ -135,7 +137,10 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
             Sintese sintese;
             try
             {
-                sintese = await casoDeUso.ExecutarAsync(consulta, ct);
+                // Nenhuma consulta fica pendurada para sempre: passou do limite, o usuário recebe o aviso de erro.
+                using var limite = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                limite.CancelAfter(LimiteDaConsulta);
+                sintese = await casoDeUso.ExecutarAsync(consulta, limite.Token);
             }
             finally
             {
@@ -147,7 +152,7 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
             // Só uma Síntese real (com fontes) pede avaliação; avisos e recusas não.
             return (FormatadorDeResposta.Formatar(sintese), sintese.EncontrouFontes ? Botoes() : null);
         }
-        catch (Exception erro) when (erro is not OperationCanceledException)
+        catch (Exception erro) when (erro is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             // Nunca logar o texto da consulta: mensagens de usuário não são guardadas.
             logger.LogError(erro, "Falha ao responder consulta");
@@ -155,7 +160,7 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
         }
     }
 
-    private static async Task MostrarDigitando(ITelegramBotClient cliente, long chat, CancellationToken ct)
+    private async Task MostrarDigitando(ITelegramBotClient cliente, long chat, CancellationToken ct)
     {
         try
         {
@@ -169,9 +174,10 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
         {
             // Resposta pronta (ou cancelamento): o indicador simplesmente para.
         }
-        catch (Exception)
+        catch (Exception erro)
         {
             // Falha no indicador não pode atrapalhar a resposta.
+            logger.LogWarning(erro, "Não foi possível mostrar o digitando");
         }
     }
 
