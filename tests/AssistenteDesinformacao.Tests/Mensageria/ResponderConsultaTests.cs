@@ -310,6 +310,10 @@ public class ResponderConsultaTests
     [InlineData("Talvez", true)]
     [InlineData("", true)]
     [InlineData(null, true)]
+    [InlineData("<think>vamos ver</think>\n\nNAO", false)]
+    [InlineData("<think>vamos ver</think>\n\nSIM", true)]
+    [InlineData("<think>raciocínio cortado no meio", true)]
+    [InlineData("<think>só pensou</think>\n\n", true)]
     public void Classificador_so_libera_com_nao_claro(string? resposta, bool bloqueia) =>
         Assert.Equal(bloqueia, AssistenteDesinformacao.Infrastructure.Analise.ClassificadorDeNeutralidadeComIa.Interpretar(resposta));
 

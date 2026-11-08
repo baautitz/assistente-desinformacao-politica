@@ -32,6 +32,7 @@ public class ClassificadorDeNeutralidadeRealTests
         "O presidente anunciou aumento do salário mínimo para 2.000 reais",
         "Vacina causa autismo, segundo post viral",
         "Bom dia, grupo!",
+        "Bolsa Família será cortado em 2 anos, informa coordenadora de candidato do PL",
     };
 
     [Theory]
