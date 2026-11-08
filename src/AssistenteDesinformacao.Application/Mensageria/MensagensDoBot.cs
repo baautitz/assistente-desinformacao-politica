@@ -37,6 +37,17 @@ public static class MensagensDoBot
         string.Create(CultureInfo.InvariantCulture,
             $"Consultas: {resumo.Consultas}\nVotos 👍: {resumo.VotosUteis}\nVotos 👎: {resumo.VotosInuteis}\nTempo médio de resposta: {(resumo.TempoMedioEmMilissegundos is { } ms ? $"{ms:0} ms" : "sem dados")}");
 
+    /// <summary>Texto da mensagem de status que o bot edita enquanto trabalha.</summary>
+    public static string Etapa(EtapaDaConsulta etapa) => etapa switch
+    {
+        EtapaDaConsulta.Lendo => "🔎 Lendo a sua mensagem...",
+        EtapaDaConsulta.Buscando => "📚 Buscando o que agências e veículos publicaram...",
+        EtapaDaConsulta.BuscandoDeNovo => "🔁 Nada relevante ainda. Buscando de outro jeito...",
+        EtapaDaConsulta.Conferindo => "🧐 Conferindo quais fontes tratam do assunto...",
+        EtapaDaConsulta.Escrevendo => "✍️ Escrevendo o resumo...",
+        _ => "⏳ Trabalhando nisso...",
+    };
+
     public const string FeedbackRegistrado = "Obrigado pelo feedback!";
 
     public const string Erro = "Não consegui responder agora. Tente de novo em alguns minutos.";

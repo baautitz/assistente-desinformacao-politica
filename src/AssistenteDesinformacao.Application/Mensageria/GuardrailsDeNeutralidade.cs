@@ -29,6 +29,13 @@ public static partial class GuardrailsDeNeutralidade
 
     private static readonly string[] Atribuicoes = ["segundo", "de acordo com", "conforme", "classificou", "classificação", "para a agência", "para o "];
 
+    /// <summary>Palavras comuns do inglês e alfabetos que não são o nosso: sinal de que o modelo misturou idiomas ou soltou lixo.</summary>
+    [GeneratedRegex(@"\b(the|of|and|according|having|statements?|agencies|context|completion|that|with|were|not)\b|[\u0400-\u04FF\u0590-\u05FF\u0600-\u06FF\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF]",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ForaDoPortugues();
+
+    public static bool TemTextoForaDoPortugues(string texto) => ForaDoPortugues().IsMatch(texto);
+
     public static bool TemRecomendacaoEleitoral(string texto) => RecomendacaoEleitoral().IsMatch(texto);
 
     public static bool TemLink(Fonte fonte) =>

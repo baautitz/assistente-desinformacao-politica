@@ -84,11 +84,29 @@ public class ResponderConsultaTests
     }
 
     [Fact]
-    public async Task Texto_sem_alegacao_responde_que_nao_encontrou()
+    public async Task Texto_sem_fato_isolado_ainda_busca_pelo_texto_inteiro()
     {
-        var caso = Criar([], [ChecagemRecente], new RedatorFalso("inventado"));
+        var redator = new RedatorFalso("Isso é uma previsão; as fontes mostram o contexto.");
+        var caso = Criar([], [ChecagemRecente], redator);
 
-        var sintese = await caso.ExecutarAsync(new Consulta("bom dia!"));
+        var sintese = await caso.ExecutarAsync(new Consulta("fulano vai destruir o país"));
+
+        Assert.Equal("Isso é uma previsão; as fontes mostram o contexto.", sintese.Resumo);
+        Assert.Equal([ChecagemRecente], sintese.Fontes);
+    }
+
+    [Fact]
+    public async Task Texto_sem_fato_e_sem_fonte_responde_que_nao_encontrou_apuracao()
+    {
+        var sintese = await Criar([], [], new RedatorFalso("inventado")).ExecutarAsync(new Consulta("bom dia!"));
+
+        Assert.Equal(MensagensDoBot.SemApuracao, sintese.Resumo);
+    }
+
+    [Fact]
+    public async Task Mensagem_vazia_pede_o_texto()
+    {
+        var sintese = await Criar([], [ChecagemRecente], new RedatorFalso("x")).ExecutarAsync(new Consulta("   "));
 
         Assert.Equal(MensagensDoBot.SemAlegacao, sintese.Resumo);
     }
@@ -243,6 +261,36 @@ public class ResponderConsultaTests
         Assert.Equal([ChecagemRecente], sintese.Fontes);
     }
 
+    [Theory]
+    [InlineData("As fontes relatam isso, Having completion context: According to the agencies, nada.", true)]
+    [InlineData("A agência classificou como falso e explicou o motivo.", false)]
+    [InlineData("A agência disse 这是假的 sobre o caso.", true)]
+    public void Detecta_texto_fora_do_portugues(string texto, bool fora) =>
+        Assert.Equal(fora, GuardrailsDeNeutralidade.TemTextoForaDoPortugues(texto));
+
+    [Fact]
+    public async Task Resumo_com_idioma_misturado_e_refeito_uma_vez()
+    {
+        var redator = new RedatorSequencial("Segundo a agência, According to the agencies, lixo.", "Segundo a agência, é falso.");
+        var caso = Criar(["alegação"], [ChecagemRecente], redator);
+
+        var sintese = await caso.ExecutarAsync(new Consulta("texto"));
+
+        Assert.Equal("Segundo a agência, é falso.", sintese.Resumo);
+        Assert.Equal(2, redator.Chamadas);
+    }
+
+    [Fact]
+    public async Task Resumo_que_continua_misturado_vira_so_a_lista_de_fontes()
+    {
+        var redator = new RedatorSequencial("According to the agencies, lixo.", "Having completion context, lixo.");
+
+        var sintese = await Criar(["alegação"], [ChecagemRecente], redator).ExecutarAsync(new Consulta("texto"));
+
+        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
+        Assert.Equal([ChecagemRecente], sintese.Fontes);
+    }
+
     [Fact]
     public async Task Resumo_da_ia_com_recomendacao_obvia_vira_resposta_padrao()
     {
@@ -290,7 +338,7 @@ public class ResponderConsultaTests
     public void Classificador_so_libera_com_nao_claro(string? resposta, bool bloqueia) =>
         Assert.Equal(bloqueia, AssistenteDesinformacao.Infrastructure.Analise.ClassificadorDeNeutralidadeComIa.Interpretar(resposta));
 
-    private static ResponderConsulta Criar(string[] alegacoes, IReadOnlyList<Fonte> fontes, RedatorFalso redator,
+    private static ResponderConsulta Criar(string[] alegacoes, IReadOnlyList<Fonte> fontes, IRedatorDeSintese redator,
         ClassificadorDeNeutralidadeFalso? classificador = null) =>
         new(new ExtratorFalso(alegacoes), new ExtratorDeImagemFalso(alegacoes, disponivel: true), new BuscadorFalso(fontes), redator,
             classificador ?? ClassificadorDeNeutralidadeFalso.Liberando, NullLogger<ResponderConsulta>.Instance);
@@ -316,6 +364,14 @@ public class ResponderConsultaTests
     private sealed class BuscadorFalso(IReadOnlyList<Fonte> fontes) : IBuscadorDeFontes
     {
         public Task<IReadOnlyList<Fonte>> BuscarAsync(Alegacao alegacao, CancellationToken ct) => Task.FromResult(fontes);
+    }
+
+    private sealed class RedatorSequencial(params string[] resumos) : IRedatorDeSintese
+    {
+        public int Chamadas { get; private set; }
+
+        public Task<string> RedigirAsync(IReadOnlyList<Alegacao> alegacoes, IReadOnlyList<Fonte> fontes, CancellationToken ct) =>
+            Task.FromResult(resumos[Math.Min(Chamadas++, resumos.Length - 1)]);
     }
 
     private sealed class RedatorFalso(string resumo) : IRedatorDeSintese

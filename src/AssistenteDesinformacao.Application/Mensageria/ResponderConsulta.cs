@@ -20,14 +20,17 @@ public sealed class ResponderConsulta(
 {
     public const int MaximoDeAlegacoes = 3;
     public const int MaximoDeTentativasDeBusca = 3;
+    private const string MotivoForaDoPortugues = "texto fora do português";
     public const int MaximoDeFontes = 5;
+    public const int MaximoDeCaracteresDaBusca = 500;
     public const int MaximoDeBytesDaImagem = 5 * 1024 * 1024;
 
-    public async Task<Sintese> ExecutarAsync(Consulta consulta, CancellationToken ct = default)
+    public async Task<Sintese> ExecutarAsync(
+        Consulta consulta, CancellationToken ct = default, IProgress<EtapaDaConsulta>? progresso = null)
     {
         try
         {
-            return await ResponderAsync(consulta, ct);
+            return await ResponderAsync(consulta, progresso, ct);
         }
         catch (Exception erro) when (erro is not OperationCanceledException)
         {
@@ -48,8 +51,9 @@ public sealed class ResponderConsulta(
 
     private static string PrimeiraLinha(Exception erro) => erro.Message.Split('\n')[0].Trim();
 
-    private async Task<Sintese> ResponderAsync(Consulta consulta, CancellationToken ct)
+    private async Task<Sintese> ResponderAsync(Consulta consulta, IProgress<EtapaDaConsulta>? progresso, CancellationToken ct)
     {
+        progresso?.Report(EtapaDaConsulta.Lendo);
         IReadOnlyList<Alegacao> extraidas;
         if (consulta.Imagem is { } imagem)
         {
@@ -64,6 +68,14 @@ public sealed class ResponderConsulta(
             if (string.IsNullOrWhiteSpace(consulta.Texto))
                 return Mensagem(MensagensDoBot.SemAlegacao);
             extraidas = await extrator.ExtrairAsync(consulta.Texto, ct);
+            // Opinião ou previsão ("fulano vai destruir o país") não tem fato isolado, mas o assunto tem apuração publicada.
+            // Em vez de pedir outro texto ao usuário, o bot busca pelo que ele escreveu.
+            if (extraidas.Count == 0)
+            {
+                logger.LogInformation("Nenhum fato isolado na mensagem; buscando pelo texto como um todo");
+                var texto = consulta.Texto.Trim();
+                extraidas = [new Alegacao(texto.Length > MaximoDeCaracteresDaBusca ? texto[..MaximoDeCaracteresDaBusca] : texto)];
+            }
         }
 
         var alegacoes = extraidas
@@ -73,15 +85,25 @@ public sealed class ResponderConsulta(
         if (alegacoes.Count == 0)
             return Mensagem(MensagensDoBot.SemAlegacao);
 
-        var fontes = await BuscarFontesRelevantesAsync(alegacoes, ct);
+        var fontes = await BuscarFontesRelevantesAsync(alegacoes, progresso, ct);
         if (fontes.Count == 0)
         {
             logger.LogInformation("Nenhuma fonte relevante: respondendo que não encontrou apuração");
             return Mensagem(MensagensDoBot.SemApuracao);
         }
 
-        var resumo = (await redator.RedigirAsync(alegacoes, fontes, ct)).Trim();
-        var motivo = await MotivoParaDescartarAsync(resumo, fontes, ct);
+        progresso?.Report(EtapaDaConsulta.Escrevendo);
+        string resumo;
+        string? motivo;
+        var tentativa = 0;
+        do
+        {
+            // O modelo às vezes mistura idiomas ou solta lixo: uma nova tentativa costuma resolver.
+            resumo = (await redator.RedigirAsync(alegacoes, fontes, ct)).Trim();
+            motivo = await MotivoParaDescartarAsync(resumo, fontes, ct);
+            tentativa++;
+        }
+        while (motivo == MotivoForaDoPortugues && tentativa < 2);
         if (motivo is null)
             logger.LogInformation("Resumo aprovado pelos guardrails; {Fontes} fontes ({Checagens} checagens)",
                 fontes.Count, fontes.Count(f => f is Checagem));
@@ -95,6 +117,8 @@ public sealed class ResponderConsulta(
     {
         if (resumo.Length == 0)
             return "resumo vazio";
+        if (GuardrailsDeNeutralidade.TemTextoForaDoPortugues(resumo))
+            return MotivoForaDoPortugues;
         if (await InduzVotoAsync(resumo, ct))
             return "recomendação eleitoral";
         if (GuardrailsDeNeutralidade.CitaLinkForaDasFontes(resumo, fontes))
@@ -108,11 +132,13 @@ public sealed class ResponderConsulta(
     /// Busca, confere se as fontes tratam mesmo da alegação e, se nenhuma serviu, reescreve a alegação e busca de novo
     /// (até <see cref="MaximoDeTentativasDeBusca"/> vezes). Sem fonte relevante, devolve vazio: melhor dizer que não achou do que listar lixo.
     /// </summary>
-    private async Task<IReadOnlyList<Fonte>> BuscarFontesRelevantesAsync(IReadOnlyList<Alegacao> alegacoes, CancellationToken ct)
+    private async Task<IReadOnlyList<Fonte>> BuscarFontesRelevantesAsync(
+        IReadOnlyList<Alegacao> alegacoes, IProgress<EtapaDaConsulta>? progresso, CancellationToken ct)
     {
         var atuais = alegacoes;
         for (var tentativa = 1; ; tentativa++)
         {
+            progresso?.Report(tentativa == 1 ? EtapaDaConsulta.Buscando : EtapaDaConsulta.BuscandoDeNovo);
             var encontradas = new List<Fonte>();
             foreach (var alegacao in atuais)
                 encontradas.AddRange(await buscador.BuscarAsync(alegacao, ct));
@@ -123,6 +149,8 @@ public sealed class ResponderConsulta(
                 .Concat(validas.Where(f => f is not Checagem))
                 .ToList();
 
+            if (candidatas.Count > 0 && juiz is not null)
+                progresso?.Report(EtapaDaConsulta.Conferindo);
             var relevantes = candidatas.Count == 0 || juiz is null
                 ? candidatas
                 : await juiz.FiltrarAsync(alegacoes, candidatas, ct);
