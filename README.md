@@ -44,18 +44,22 @@ Projeto da disciplina de Inteligência Artificial, curso de Sistemas de Informa�
 Telegram ──► Worker ──► ResponderConsulta
                           │
                           ├─ 1. Extrai alegações (texto, ou print via modelo de visão)
-                          ├─ 2. Busca fontes
+                          ├─ 2. Busca fontes (em paralelo)
                           │      ├─ Google Fact Check Tools API   (Checagens)
-                          │      └─ Postgres: texto + pgvector    (Matérias dos RSS)
-                          ├─ 3. Redige a Síntese com a IA, só com o que as fontes dizem
-                          └─ 4. Valida antes de enviar (links, veredito, neutralidade)
+                          │      └─ Postgres: texto + pgvector    (Matérias dos RSS, por relevância)
+                          ├─ 3. Juiz de relevância (IA): descarta fonte que não trata da alegação
+                          │      └─ nenhuma serviu? reescreve a alegação e busca de novo (até 3 tentativas)
+                          ├─ 4. Redige a Síntese com a IA, só com o que as fontes dizem
+                          └─ 5. Valida antes de enviar (links, veredito, neutralidade)
+
+Enquanto isso o bot mostra "digitando..." no Telegram até a resposta ficar pronta.
 
 ColetorWorker ──► lê os feeds de fontes.yaml de tempos em tempos ──► Postgres
 ```
 
 Regras que o código garante antes de enviar qualquer resposta:
 
-- Toda Síntese traz pelo menos um link de uma fonte encontrada. Sem fonte, a resposta é "não encontrei apuração".
+- Toda Síntese traz pelo menos um link de uma fonte **relevante**. Sem fonte relevante (mesmo depois de reformular a busca), a resposta é "não encontrei apuração": o bot não lista link só para parecer que achou algo.
 - Veredito só aparece quando uma agência de checagem o publicou, e sempre com o nome dela.
 - **Filtro de neutralidade sobre o que o bot escreve**: o usuário pode mandar qualquer texto, inclusive notícia sensacionalista ou sobre candidatos (é justamente o que o bot existe para conferir). Mas o resumo gerado pela IA nunca pode recomendar voto, candidato ou partido. Um atalho barato (regex) pega os casos óbvios ("vote 22", "melhor candidato") e os demais passam por um classificador de IA (temperatura 0, resposta SIM/NAO). Na dúvida ou em caso de erro, **bloqueia**: só uma resposta clara "NAO" libera. Se o resumo for barrado, o bot manda só a lista de fontes.
 - Checagens de agências têm prioridade sobre matérias no corte das 5 fontes citadas.
