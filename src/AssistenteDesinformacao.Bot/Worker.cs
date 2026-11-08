@@ -129,6 +129,8 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
             var cronometro = Stopwatch.StartNew();
             using var escopo = escopos.CreateScope();
             var casoDeUso = escopo.ServiceProvider.GetRequiredService<ResponderConsulta>();
+            // Só o tipo da mensagem vai para o log: nunca o texto nem quem enviou.
+            logger.LogInformation("Consulta recebida ({Tipo})", foto is null ? "texto" : "print");
             var consulta = foto is null ? new Consulta(texto!) : Consulta.DePrint(await Baixar(cliente, foto, ct));
             Sintese sintese;
             try
@@ -140,6 +142,7 @@ public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, Limita
                 await terminou.CancelAsync();
                 await digitando;
             }
+            logger.LogInformation("Consulta respondida em {Segundos:F1}s ({Fontes} fontes)", cronometro.Elapsed.TotalSeconds, sintese.Fontes.Count);
             await RegistrarTempo(escopo, cronometro.Elapsed, ct);
             // Só uma Síntese real (com fontes) pede avaliação; avisos e recusas não.
             return (FormatadorDeResposta.Formatar(sintese), sintese.EncontrouFontes ? Botoes() : null);

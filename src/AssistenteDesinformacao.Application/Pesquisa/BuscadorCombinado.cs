@@ -27,9 +27,13 @@ public sealed class BuscadorCombinado(IReadOnlyList<IBuscadorDeFontes> buscadore
     private async Task<(IReadOnlyList<Fonte>? Fontes, Exception? Erro)> BuscarSemFalharAsync(
         IBuscadorDeFontes buscador, Alegacao alegacao, CancellationToken ct)
     {
+        var cronometro = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            return (await buscador.BuscarAsync(alegacao, ct), null);
+            var fontes = await buscador.BuscarAsync(alegacao, ct);
+            logger.LogInformation("{Buscador}: {Quantidade} fontes em {Milissegundos} ms",
+                buscador.GetType().Name, fontes.Count, cronometro.ElapsedMilliseconds);
+            return (fontes, null);
         }
         catch (Exception erro) when (erro is not OperationCanceledException)
         {

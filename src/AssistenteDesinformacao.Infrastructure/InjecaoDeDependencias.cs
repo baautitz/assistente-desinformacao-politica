@@ -32,11 +32,13 @@ public static class InjecaoDeDependencias
             Obrigatorio(config, "IA_CHAVE"),
             Obrigatorio(config, "IA_MODELO_TEXTO"));
 
-        services.AddSingleton<IChatClient>(_ =>
-            new OpenAIClient(new ApiKeyCredential(ia.Chave), new OpenAIClientOptions { Endpoint = ia.UrlBase })
-                .GetChatClient(ia.ModeloDeTexto)
-                .AsIChatClient()
-                .SemRaciocinio());
+        services.AddSingleton<IChatClient>(sp =>
+            new ClienteComLog(
+                new OpenAIClient(new ApiKeyCredential(ia.Chave), new OpenAIClientOptions { Endpoint = ia.UrlBase })
+                    .GetChatClient(ia.ModeloDeTexto)
+                    .AsIChatClient()
+                    .SemRaciocinio(),
+                sp.GetRequiredService<ILogger<ClienteComLog>>()));
 
         if (config["IA_MODELO_VISAO"] is { Length: > 0 } modeloDeVisao)
         {

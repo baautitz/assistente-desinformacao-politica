@@ -58,19 +58,39 @@ public sealed class ResponderConsulta(
         var alegacoes = extraidas
             .Take(MaximoDeAlegacoes)
             .ToList();
+        logger.LogInformation("Alegações extraídas: {Quantidade}", alegacoes.Count);
         if (alegacoes.Count == 0)
             return Mensagem(MensagensDoBot.SemAlegacao);
 
         var fontes = await BuscarFontesRelevantesAsync(alegacoes, ct);
         if (fontes.Count == 0)
+        {
+            logger.LogInformation("Nenhuma fonte relevante: respondendo que não encontrou apuração");
             return Mensagem(MensagensDoBot.SemApuracao);
+        }
 
         var resumo = (await redator.RedigirAsync(alegacoes, fontes, ct)).Trim();
-        var valido = resumo.Length > 0
-            && !await InduzVotoAsync(resumo, ct)
-            && !GuardrailsDeNeutralidade.CitaLinkForaDasFontes(resumo, fontes)
-            && !GuardrailsDeNeutralidade.TemVereditoPorContaPropria(resumo, fontes);
-        return new Sintese(valido ? resumo : MensagensDoBot.ResumoPadrao, fontes);
+        var motivo = await MotivoParaDescartarAsync(resumo, fontes, ct);
+        if (motivo is null)
+            logger.LogInformation("Resumo aprovado pelos guardrails; {Fontes} fontes ({Checagens} checagens)",
+                fontes.Count, fontes.Count(f => f is Checagem));
+        else
+            logger.LogWarning("Resumo descartado ({Motivo}); enviando só a lista de {Fontes} fontes", motivo, fontes.Count);
+        return new Sintese(motivo is null ? resumo : MensagensDoBot.ResumoPadrao, fontes);
+    }
+
+    /// <summary>Nulo quando o resumo pode ser enviado; senão, o motivo (só para o log).</summary>
+    private async Task<string?> MotivoParaDescartarAsync(string resumo, IReadOnlyList<Fonte> fontes, CancellationToken ct)
+    {
+        if (resumo.Length == 0)
+            return "resumo vazio";
+        if (await InduzVotoAsync(resumo, ct))
+            return "recomendação eleitoral";
+        if (GuardrailsDeNeutralidade.CitaLinkForaDasFontes(resumo, fontes))
+            return "link fora das fontes";
+        if (GuardrailsDeNeutralidade.TemVereditoPorContaPropria(resumo, fontes))
+            return "veredito sem agência";
+        return null;
     }
 
     /// <summary>
@@ -95,11 +115,15 @@ public sealed class ResponderConsulta(
             var relevantes = candidatas.Count == 0 || juiz is null
                 ? candidatas
                 : await juiz.FiltrarAsync(alegacoes, candidatas, ct);
+            logger.LogInformation("Busca {Tentativa}/{Maximo}: {Candidatas} candidatas ({Checagens} checagens), {Relevantes} relevantes",
+                tentativa, MaximoDeTentativasDeBusca, candidatas.Count, candidatas.Count(f => f is Checagem), relevantes.Count);
             if (relevantes.Count > 0)
                 return relevantes.Take(MaximoDeFontes).ToList();
 
             if (juiz is null || tentativa >= MaximoDeTentativasDeBusca)
                 return [];
+
+            logger.LogInformation("Nenhuma fonte relevante; reformulando a alegação para a tentativa {Proxima}", tentativa + 1);
 
             var reformuladas = new List<Alegacao>();
             foreach (var alegacao in alegacoes)
