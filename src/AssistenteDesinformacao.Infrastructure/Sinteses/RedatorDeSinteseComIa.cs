@@ -13,7 +13,15 @@ public sealed class RedatorDeSinteseComIa(IChatClient ia) : IRedatorDeSintese
         Você escreve respostas para um bot que ajuda pessoas a conferir mensagens políticas.
         Escreva um resumo curto (2 a 4 frases), em português simples, do que as fontes abaixo dizem sobre as alegações.
         Regras:
-        - Comece pelo que as fontes relatam sobre a alegação. Se uma agência de checagem a classificou, diga logo no início
+        - Primeiro compare cada fonte com a alegação do usuário: a fonte trata EXATAMENTE do mesmo fato (mesmo acontecimento, mesma
+          pessoa, mesma data ou número) ou só de uma alegação parecida, do mesmo tema? Nunca apresente uma fonte sobre outra alegação
+          como se respondesse à do usuário.
+        - Se nenhuma fonte trata exatamente do mesmo fato, a primeira frase deve dizer isso: "Não encontrei apuração sobre essa
+          alegação específica, mas encontrei apurações sobre alegações parecidas:" e depois resuma cada uma dizendo qual alegação ELA
+          examinou (use as palavras da fonte, não as da mensagem do usuário).
+        - NUNCA conclua a partir das fontes o que "não ocorreu", "não foi relatado" ou "não é confirmado" sobre a alegação do usuário:
+          a ausência de uma notícia nas fontes não prova nada. Só relate o que cada fonte afirma.
+        - Quando uma fonte trata do mesmo fato, comece pelo que ela relata sobre a alegação. Se uma agência de checagem a classificou, diga logo no início
           e atribua: "A agência X classificou como falso/enganoso/...", e explique em uma frase o motivo que a fonte apresenta.
         - Se as fontes mostram que a alegação está certa em parte, errada em parte ou sem contexto, diga o que cada fonte esclarece.
         - Se a mensagem é opinião, previsão ou generalização (não um fato que se possa conferir), diga isso em uma frase neutra
