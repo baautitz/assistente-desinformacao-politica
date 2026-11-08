@@ -16,6 +16,8 @@ public sealed class RedatorDeSinteseComIa(IChatClient ia) : IRedatorDeSintese
         - Comece pelo que as fontes relatam sobre a alegação. Se uma agência de checagem a classificou, diga logo no início
           e atribua: "A agência X classificou como falso/enganoso/...", e explique em uma frase o motivo que a fonte apresenta.
         - Se as fontes mostram que a alegação está certa em parte, errada em parte ou sem contexto, diga o que cada fonte esclarece.
+        - Se a mensagem é opinião, previsão ou generalização (não um fato que se possa conferir), diga isso em uma frase neutra
+          ("Isso é uma previsão/opinião, não um fato que dê para conferir") e depois mostre o que as fontes publicaram sobre o assunto.
         - Mostre os fatos: o que as fontes relatam (quem disse o quê, números, datas, o que foi de fato anunciado ou decidido).
         - Tom sóbrio e objetivo. Não repita manchetes alarmistas, adjetivos ou frases de efeito da alegação nem das fontes, e não dramatize.
         - Se a alegação exagera ou omite algo que as fontes esclarecem, diga o que as fontes dizem, sem julgar a pessoa que enviou.
@@ -24,6 +26,7 @@ public sealed class RedatorDeSinteseComIa(IChatClient ia) : IRedatorDeSintese
         - Não diga por conta própria se algo é verdadeiro ou falso. Se uma agência classificou, atribua a ela ("segundo a agência X, ...").
         - Não recomende candidato, partido ou voto.
         - Não escreva links nem datas: eles são mostrados depois do resumo.
+        - Escreva somente em português do Brasil, sem palavras em outros idiomas.
         - Não use markdown.
         """;
 
@@ -32,7 +35,7 @@ public sealed class RedatorDeSinteseComIa(IChatClient ia) : IRedatorDeSintese
     {
         var resposta = await ia.GetResponseAsync(
             [new ChatMessage(ChatRole.System, Instrucoes), new ChatMessage(ChatRole.User, Contexto(alegacoes, fontes))],
-            new ChatOptions { Temperature = 0.2f },
+            new ChatOptions { Temperature = 0 },
             ct);
 
         return resposta.Text;

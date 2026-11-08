@@ -92,7 +92,16 @@ public static class InjecaoDeDependencias
             sp.GetRequiredService<ILogger<BuscadorCombinado>>()));
 
         services.AddSingleton<IExtratorDeAlegacoes, ExtratorDeAlegacoesComIa>();
-        services.AddSingleton<IRedatorDeSintese, RedatorDeSinteseComIa>();
+        // O resumo é a etapa que mais pede qualidade: com o raciocínio desligado, alguns modelos soltam palavras soltas e misturam idiomas.
+        // Por isso o redator tem o próprio cliente, sem os campos extras das etapas rápidas, e mais tempo para responder.
+        var camposDoRedator = InjetorDeCamposNaRequisicao.Ler(config["IA_CAMPOS_EXTRAS_REDATOR"]);
+        services.AddSingleton<IRedatorDeSintese>(sp => new RedatorDeSinteseComIa(
+            new ClienteComLog(
+                ClienteDeIa(ia, camposDoRedator, TimeSpan.FromSeconds(150))
+                    .GetChatClient(ia.ModeloDeTexto)
+                    .AsIChatClient()
+                    .SemRaciocinio(),
+                sp.GetRequiredService<ILogger<ClienteComLog>>())));
         services.AddSingleton<IClassificadorDeNeutralidade, ClassificadorDeNeutralidadeComIa>();
         services.AddSingleton<IJuizDeRelevancia, JuizDeRelevanciaComIa>();
         services.AddTransient<ResponderConsulta>();
@@ -152,15 +161,15 @@ public static class InjecaoDeDependencias
         int.TryParse(config[chave], out var valor) && valor > 0 ? valor : padrao;
 
     /// <summary>
-    /// Cliente do provedor de IA com limite de tempo e uma única nova tentativa: sem isso, um modelo lento deixa o usuário esperando
+    /// Cliente do provedor de IA com limite de tempo (25s nas etapas rápidas, que normalmente levam poucos segundos) e uma única nova tentativa: sem isso, uma chamada travada deixa o usuário esperando
     /// minutos (o padrão é 100s por chamada e 3 repetições).
     /// </summary>
-    private static OpenAIClient ClienteDeIa(OpcoesDeIa ia, System.Text.Json.Nodes.JsonObject? camposExtras)
+    private static OpenAIClient ClienteDeIa(OpcoesDeIa ia, System.Text.Json.Nodes.JsonObject? camposExtras, TimeSpan? limite = null)
     {
         var opcoes = new OpenAIClientOptions
         {
             Endpoint = ia.UrlBase,
-            NetworkTimeout = TimeSpan.FromSeconds(60),
+            NetworkTimeout = limite ?? TimeSpan.FromSeconds(25),
             RetryPolicy = new ClientRetryPolicy(maxRetries: 1),
         };
         if (camposExtras is not null)

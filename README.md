@@ -52,7 +52,7 @@ Telegram ──► Worker ──► ResponderConsulta
                           ├─ 4. Redige a Síntese com a IA, só com o que as fontes dizem
                           └─ 5. Valida antes de enviar (links, veredito, neutralidade)
 
-Enquanto isso o bot mostra "digitando..." no Telegram até a resposta ficar pronta.
+Enquanto isso o bot mostra "digitando..." no Telegram e uma mensagem de status ("🔎 Lendo...", "📚 Buscando...", "🧐 Conferindo...", "✍️ Escrevendo...") que é editada a cada etapa e vira a resposta no final.
 
 ColetorWorker ──► lê os feeds de fontes.yaml de tempos em tempos ──► Postgres
 ```
@@ -102,6 +102,7 @@ Ficam no arquivo `.env` (modelo em [`.env.example`](.env.example)). O `.env` e o
 | `IA_CHAVE` | sim | - | Chave de API do provedor de IA. |
 | `IA_MODELO_TEXTO` | sim | `gpt-4o-mini` | Modelo usado para extrair a alegação, redigir a síntese e classificar a neutralidade. |
 | `IA_CAMPOS_EXTRAS` | não | vazio | Objeto JSON com campos extras enviados em toda chamada de chat, para opções que só alguns provedores aceitam. No MiniMax, `{"thinking":{"type":"disabled"}}` desliga o raciocínio e a resposta cai de ~60s para ~2s. Outros provedores podem recusar campos desconhecidos. |
+| `IA_CAMPOS_EXTRAS_REDATOR` | não | vazio | Igual ao anterior, mas só para a etapa que escreve o resumo. Vazio deixa o modelo raciocinar nessa etapa (mais lento, resumo melhor); as etapas rápidas seguem com `IA_CAMPOS_EXTRAS`. |
 | `IA_MODELO_VISAO` | não | vazio | Modelo de visão para ler prints. Sem ele, o bot responde que só lê texto. |
 | `IA_MODELO_EMBEDDINGS` | não | vazio | Modelo de embeddings (ex.: `text-embedding-3-small`) do mesmo provedor. Com ele, a coleta gera o vetor de cada matéria nova e a consulta gera o da Alegação, e a busca combina sentido (pgvector) e texto. Sem ele, só texto. |
 | `GOOGLE_FACT_CHECK_API_KEY` | sim | - | Chave da Google Fact Check Tools API. |
