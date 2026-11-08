@@ -29,7 +29,7 @@ Projeto da disciplina de Inteligência Artificial, curso de Sistemas de Informa�
 - Responde com um resumo neutro, os links e as datas das fontes.
 - Aceita 👍 ou 👎 em cada resposta, para avaliarmos se ela ajudou.
 - Limita as consultas por usuário (padrão: 5 por minuto).
-- Comandos: `/start` explica o que o bot faz e não faz; `/metricas` (só para o `ADMIN_TELEGRAM_ID`) mostra consultas, votos e tempo médio.
+- Comandos: `/start` explica o que o bot faz e não faz; `/metricas` ou `/metrics` (só para o `ADMIN_TELEGRAM_ID`) mostra consultas, votos e tempo médio.
 
 ## O que não faz
 
@@ -264,6 +264,8 @@ Busca 1/3: 11 candidatas (3 checagens), 1 relevantes
 Resumo aprovado pelos guardrails; 1 fontes (1 checagens)
 Consulta respondida em 31.2s (1 fontes)
 ```
+
+Também são registrados os votos (`Feedback registrado: 👍 útil` ou `👎 não ajudou`), o uso do `/metricas` (`Métricas enviadas ao administrador` ou o motivo de ter sido ignorado) e o limite de consultas por minuto. O ID de quem votou ou pediu nunca vai para o log.
 
 Quando nenhuma fonte serve, aparece `reformulando a alegação para a tentativa 2`. Se um guardrail barrar o resumo, aparece `Resumo descartado (motivo)`. As chamadas lentas de IA aparecem na linha `Chamada à IA`.
 
