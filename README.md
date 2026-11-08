@@ -251,6 +251,21 @@ docker compose -f docker-compose.yml restart bot          # reinicia só o bot
 docker compose -f docker-compose.yml down                 # para tudo (os dados ficam no volume)
 ```
 
+O log mostra cada etapa de uma consulta, sem o texto da mensagem nem quem enviou (só contagens e decisões):
+
+```
+Consulta recebida (texto)
+Alegações extraídas: 1
+Chamada à IA em 9.8s (412 tokens de entrada, 530 de saída)
+BuscadorNaFactCheck: 3 fontes em 640 ms
+BuscadorDeMaterias: 8 fontes em 11200 ms
+Busca 1/3: 11 candidatas (3 checagens), 1 relevantes
+Resumo aprovado pelos guardrails; 1 fontes (1 checagens)
+Consulta respondida em 31.2s (1 fontes)
+```
+
+Quando nenhuma fonte serve, aparece `reformulando a alegação para a tentativa 2`. Se um guardrail barrar o resumo, aparece `Resumo descartado (motivo)`. As chamadas lentas de IA aparecem na linha `Chamada à IA`.
+
 Os containers têm `restart: unless-stopped`, então voltam sozinhos após reboot da VPS. Depois de mudar o `.env`, rode `up -d` de novo: um `restart` não relê o arquivo.
 
 ## Problemas comuns
