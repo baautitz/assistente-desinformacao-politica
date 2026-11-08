@@ -18,7 +18,7 @@ public sealed class BuscadorNaFactCheck(HttpClient http, OpcoesDaFactCheck opcoe
 
     public async Task<IReadOnlyList<Fonte>> BuscarAsync(Alegacao alegacao, CancellationToken ct)
     {
-        var url = "claims:search"
+        var url = "./claims:search" // "./" evita que "claims:" seja lido como esquema de URL
             + $"?query={Uri.EscapeDataString(alegacao.Texto)}"
             + $"&languageCode={Uri.EscapeDataString(opcoes.Idioma)}"
             + $"&pageSize={opcoes.ResultadosPorBusca}";
