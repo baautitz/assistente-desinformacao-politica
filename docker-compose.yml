@@ -9,6 +9,19 @@ services:
       db:
         condition: service_healthy
 
+  # Mesma imagem do bot, outro processo: lê os feeds RSS e grava as Matérias no Postgres.
+  coletor:
+    image: ghcr.io/baautitz/assistente-desinformacao-politica:latest
+    restart: unless-stopped
+    working_dir: /app/coletor
+    entrypoint: ["dotnet", "AssistenteDesinformacao.Coletor.dll"]
+    env_file: .env
+    environment:
+      ConnectionStrings__Postgres: Host=db;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Database=${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+
   db:
     image: pgvector/pgvector:pg18
     restart: unless-stopped
