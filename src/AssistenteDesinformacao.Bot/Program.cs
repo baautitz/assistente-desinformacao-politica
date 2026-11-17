@@ -8,9 +8,8 @@ var token = builder.Configuration["TELEGRAM_BOT_TOKEN"]
     ?? throw new InvalidOperationException("Defina TELEGRAM_BOT_TOKEN (veja .env.example).");
 
 builder.Services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(token));
-builder.Services.AdicionarInfraestrutura(builder.Configuration);
+builder.Services.AdicionarInfraestruturaDoBot(builder.Configuration);
 builder.Services.AddHostedService<Worker>();
-builder.Services.AddHostedService<ColetorWorker>();
 
 var app = builder.Build();
 await app.Services.MigrarBancoAsync();

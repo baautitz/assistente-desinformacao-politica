@@ -26,8 +26,12 @@ namespace AssistenteDesinformacao.Infrastructure;
 
 public static class InjecaoDeDependencias
 {
-    public static IServiceCollection AdicionarInfraestrutura(this IServiceCollection services, IConfiguration config)
+    /// <summary>Tudo o que o bot precisa para responder Consultas: IA, Fact Check, busca, Feedback e métricas.</summary>
+    public static IServiceCollection AdicionarInfraestruturaDoBot(this IServiceCollection services, IConfiguration config)
     {
+        AdicionarBanco(services, config);
+        AdicionarEmbeddings(services, config);
+
         var ia = new OpcoesDeIa(
             new Uri(Obrigatorio(config, "IA_URL_BASE")),
             Obrigatorio(config, "IA_CHAVE"),
@@ -70,16 +74,6 @@ public static class InjecaoDeDependencias
         services.AddSingleton<IGeradorDeTermosDeBusca, GeradorDeTermosComIa>();
         services.AddScoped<IBuscaDeMaterias, BuscaDeMateriasNoPostgres>();
         services.AddScoped<IBuscaVetorialDeMaterias, BuscaVetorialNoPostgres>();
-        // Opcional: sem IA_MODELO_EMBEDDINGS não há IGeradorDeEmbeddings e a busca usa só texto.
-        if (config["IA_MODELO_EMBEDDINGS"] is { Length: > 0 } modeloDeEmbeddings)
-        {
-            services.AddSingleton<IGeradorDeEmbeddings>(_ =>
-                new GeradorDeEmbeddingsComIa(
-                    ClienteDeIa(ia, null) // embeddings não recebem os campos extras do chat
-                        .GetEmbeddingClient(modeloDeEmbeddings)
-                        .AsIEmbeddingGenerator()));
-        }
-
         services.AddScoped<IBuscadorDeFontes>(sp => new BuscadorCombinado(
             [
                 sp.GetRequiredService<BuscadorNaFactCheck>(),
@@ -106,7 +100,12 @@ public static class InjecaoDeDependencias
         services.AddSingleton<IJuizDeRelevancia, JuizDeRelevanciaComIa>();
         services.AddTransient<ResponderConsulta>();
 
-        AdicionarColeta(services, config);
+        services.AddScoped<IRepositorioDeFeedbacks, RepositorioDeFeedbacks>();
+        services.AddTransient<RegistrarFeedback>();
+        services.AddScoped<IRepositorioDeMetricas, RepositorioDeMetricas>();
+        services.AddTransient<RegistrarTempoDeResposta>();
+        services.AddTransient<ConsultarMetricas>();
+
         var limite = config["LIMITE_CONSULTAS_POR_MINUTO"] is { Length: > 0 } texto
             ? int.TryParse(texto, out var n) && n > 0
                 ? n
@@ -117,16 +116,11 @@ public static class InjecaoDeDependencias
         return services;
     }
 
-    private static void AdicionarColeta(IServiceCollection services, IConfiguration config)
+    /// <summary>Tudo o que o coletor precisa: feeds RSS, Matérias no Postgres e, se configurado, embeddings.</summary>
+    public static IServiceCollection AdicionarInfraestruturaDoColetor(this IServiceCollection services, IConfiguration config)
     {
-        services.AddDbContext<BancoDeDados>(o =>
-            o.UseNpgsql(Obrigatorio(config, "ConnectionStrings:Postgres"), npgsql => npgsql.UseVector()));
-
-        var opcoes = new OpcoesDeColeta(
-            Inteiro(config, "COLETA_JANELA_DIAS", 90),
-            Inteiro(config, "COLETA_INTERVALO_MINUTOS", 60));
-        services.AddSingleton(opcoes);
-        services.AddSingleton(TimeProvider.System);
+        AdicionarBanco(services, config);
+        AdicionarEmbeddings(services, config);
 
         var arquivo = config["FONTES_ARQUIVO"] is { Length: > 0 } caminho
             ? caminho
@@ -143,14 +137,39 @@ public static class InjecaoDeDependencias
         });
         services.AddScoped<IRepositorioDeMaterias, RepositorioDeMaterias>();
         services.AddTransient<ColetarFeeds>();
-        services.AddScoped<IRepositorioDeFeedbacks, RepositorioDeFeedbacks>();
-        services.AddTransient<RegistrarFeedback>();
-        services.AddScoped<IRepositorioDeMetricas, RepositorioDeMetricas>();
-        services.AddTransient<RegistrarTempoDeResposta>();
-        services.AddTransient<ConsultarMetricas>();
+
+        return services;
     }
 
-    /// <summary>Aplica as migrations pendentes. Chamado na inicialização do bot.</summary>
+    // Banco e opções da coleta valem para os dois processos: o bot usa a janela da coleta para ignorar Matérias antigas na busca.
+    private static void AdicionarBanco(IServiceCollection services, IConfiguration config)
+    {
+        services.AddDbContext<BancoDeDados>(o =>
+            o.UseNpgsql(Obrigatorio(config, "ConnectionStrings:Postgres"), npgsql => npgsql.UseVector()));
+
+        services.AddSingleton(new OpcoesDeColeta(
+            Inteiro(config, "COLETA_JANELA_DIAS", 90),
+            Inteiro(config, "COLETA_INTERVALO_MINUTOS", 60)));
+        services.AddSingleton(TimeProvider.System);
+    }
+
+    // Opcional: sem IA_MODELO_EMBEDDINGS não há IGeradorDeEmbeddings e a busca usa só texto.
+    // Coletor e bot precisam do mesmo modelo: o vetor da Matéria e o da Alegação só se comparam se vierem dele.
+    private static void AdicionarEmbeddings(IServiceCollection services, IConfiguration config)
+    {
+        if (config["IA_MODELO_EMBEDDINGS"] is not { Length: > 0 } modeloDeEmbeddings)
+            return;
+
+        var urlBase = new Uri(Obrigatorio(config, "IA_URL_BASE"));
+        var chave = Obrigatorio(config, "IA_CHAVE");
+        services.AddSingleton<IGeradorDeEmbeddings>(_ =>
+            new GeradorDeEmbeddingsComIa(
+                ClienteDeIa(urlBase, chave, null) // embeddings não recebem os campos extras do chat
+                    .GetEmbeddingClient(modeloDeEmbeddings)
+                    .AsIEmbeddingGenerator()));
+    }
+
+    /// <summary>Aplica as migrations pendentes. Chamado na inicialização do bot e do coletor (o EF Core trava o banco enquanto migra).</summary>
     public static async Task MigrarBancoAsync(this IServiceProvider services, CancellationToken ct = default)
     {
         await using var escopo = services.CreateAsyncScope();
@@ -164,18 +183,21 @@ public static class InjecaoDeDependencias
     /// Cliente do provedor de IA com limite de tempo (25s nas etapas rápidas, que normalmente levam poucos segundos) e uma única nova tentativa: sem isso, uma chamada travada deixa o usuário esperando
     /// minutos (o padrão é 100s por chamada e 3 repetições).
     /// </summary>
-    private static OpenAIClient ClienteDeIa(OpcoesDeIa ia, System.Text.Json.Nodes.JsonObject? camposExtras, TimeSpan? limite = null)
+    private static OpenAIClient ClienteDeIa(OpcoesDeIa ia, System.Text.Json.Nodes.JsonObject? camposExtras, TimeSpan? limite = null) =>
+        ClienteDeIa(ia.UrlBase, ia.Chave, camposExtras, limite);
+
+    private static OpenAIClient ClienteDeIa(Uri urlBase, string chave, System.Text.Json.Nodes.JsonObject? camposExtras, TimeSpan? limite = null)
     {
         var opcoes = new OpenAIClientOptions
         {
-            Endpoint = ia.UrlBase,
+            Endpoint = urlBase,
             NetworkTimeout = limite ?? TimeSpan.FromSeconds(25),
             RetryPolicy = new ClientRetryPolicy(maxRetries: 1),
         };
         if (camposExtras is not null)
             opcoes.Transport = new HttpClientPipelineTransport(
                 new HttpClient(new InjetorDeCamposNaRequisicao(camposExtras, new HttpClientHandler())));
-        return new OpenAIClient(new ApiKeyCredential(ia.Chave), opcoes);
+        return new OpenAIClient(new ApiKeyCredential(chave), opcoes);
     }
 
     private static IChatClient SemRaciocinio(this IChatClient cliente) => new ClienteSemRaciocinio(cliente);

@@ -26,7 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\..\src\AssistenteDesinformacao.Bot\fontes.yaml" Link="fontes.yaml" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\src\AssistenteDesinformacao.Coletor\fontes.yaml" Link="fontes.yaml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
