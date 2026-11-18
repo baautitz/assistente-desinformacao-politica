@@ -1,4 +1,4 @@
-using AssistenteDesinformacao.Bot;
+using AssistenteDesinformacao.TelegramBot;
 using AssistenteDesinformacao.Infrastructure;
 using Telegram.Bot;
 
@@ -9,7 +9,7 @@ var token = builder.Configuration["TELEGRAM_BOT_TOKEN"]
 
 builder.Services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(token));
 builder.Services.AdicionarInfraestruturaDoBot(builder.Configuration);
-builder.Services.AddHostedService<Worker>();
+builder.Services.AddHostedService<TelegramWorker>();
 
 var app = builder.Build();
 await app.Services.MigrarBancoAsync();

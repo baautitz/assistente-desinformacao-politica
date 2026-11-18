@@ -41,7 +41,7 @@ Projeto da disciplina de Inteligência Artificial, curso de Sistemas de Informa�
 ## Como funciona
 
 ```
-Telegram ──► Worker ──► ResponderConsulta
+Telegram ──► TelegramWorker ──► ResponderConsulta
                           │
                           ├─ 1. Extrai alegações (texto, ou print via modelo de visão)
                           ├─ 2. Busca fontes (em paralelo)
@@ -89,7 +89,7 @@ Pré-requisitos: [Docker](https://docs.docker.com/get-docker/) com Compose, e as
 
 5. Abra o seu bot no Telegram e mande `/start`.
 
-O `docker-compose.override.yml` é carregado sozinho: builda a imagem do código local (em vez de baixar a publicada) e expõe o Postgres em `localhost:5432`. O compose sobe três serviços: `bot` (Telegram), `coletor` (feeds RSS) e `db`. As migrations rodam na subida do bot e do coletor.
+O `docker-compose.override.yml` é carregado sozinho: builda a imagem do código local (em vez de baixar a publicada) e expõe o Postgres em `localhost:5432`. O compose sobe três serviços: `telegram-bot`, `coletor` (feeds RSS) e `db`. As migrations rodam na subida do bot e do coletor.
 
 ## Variáveis de ambiente
 
@@ -137,11 +137,11 @@ docker compose up -d db                  # Postgres com pgvector em localhost:54
 set -a; source .env; set +a              # o dotnet run não lê o .env sozinho
 export ConnectionStrings__Postgres="Host=localhost;Username=$POSTGRES_USER;Password=$POSTGRES_PASSWORD;Database=$POSTGRES_DB"
 
-dotnet run --project src/AssistenteDesinformacao.Bot
+dotnet run --project src/AssistenteDesinformacao.TelegramBot
 dotnet run --project src/AssistenteDesinformacao.Coletor   # em outro terminal
 ```
 
-Alternativa sem exportar variáveis: guarde as chaves com `dotnet user-secrets set "TELEGRAM_BOT_TOKEN" "..." --project src/AssistenteDesinformacao.Bot` (os dois projetos têm `UserSecretsId`, e os segredos de um não valem para o outro; vale no ambiente `Development`, que o `dotnet run` usa por padrão).
+Alternativa sem exportar variáveis: guarde as chaves com `dotnet user-secrets set "TELEGRAM_BOT_TOKEN" "..." --project src/AssistenteDesinformacao.TelegramBot` (os dois projetos têm `UserSecretsId`, e os segredos de um não valem para o outro; vale no ambiente `Development`, que o `dotnet run` usa por padrão).
 
 ### Banco de dados e migrations
 
@@ -233,25 +233,27 @@ docker compose -f docker-compose.yml up -d
 
 O `-f docker-compose.yml` faz o Compose ignorar o `docker-compose.override.yml` (que é só para desenvolvimento) e baixar a imagem publicada. Se o pacote estiver privado, faça `docker login ghcr.io` antes, com um token do GitHub com permissão `read:packages`.
 
-Confira com `docker compose -f docker-compose.yml ps`: `bot`, `coletor` e `db` devem estar `running`. Depois mande `/start` ao bot no Telegram.
+Confira com `docker compose -f docker-compose.yml ps`: `telegram-bot`, `coletor` e `db` devem estar `running`. Depois mande `/start` ao bot no Telegram.
 
 ### 5. Atualizar
 
 ```bash
 git pull
 docker compose -f docker-compose.yml pull
-docker compose -f docker-compose.yml up -d
+docker compose -f docker-compose.yml up -d --remove-orphans
 ```
+
+O `--remove-orphans` apaga containers de serviços que saíram do compose (ex.: o antigo `bot`, hoje `telegram-bot`), para não ficarem duas instâncias do mesmo bot disputando as mensagens do Telegram.
 
 O volume `dados` do Postgres é preservado. Se o `.env.example` ganhou variáveis novas, adicione-as ao seu `.env` antes do `up`. Para fixar uma versão, troque `latest` no `docker-compose.yml` pela tag do SHA.
 
 ### Logs e reinício
 
 ```bash
-docker compose -f docker-compose.yml logs -f bot          # acompanha os logs (Ctrl+C sai)
+docker compose -f docker-compose.yml logs -f telegram-bot # acompanha os logs (Ctrl+C sai)
 docker compose -f docker-compose.yml logs -f coletor      # logs da coleta de RSS
-docker compose -f docker-compose.yml logs --tail 100 bot  # últimas 100 linhas
-docker compose -f docker-compose.yml restart bot          # reinicia só o bot
+docker compose -f docker-compose.yml logs --tail 100 telegram-bot  # últimas 100 linhas
+docker compose -f docker-compose.yml restart telegram-bot # reinicia só o bot
 docker compose -f docker-compose.yml down                 # para tudo (os dados ficam no volume)
 ```
 
@@ -295,13 +297,13 @@ src/
   AssistenteDesinformacao.Domain/          # tipos puros: Alegação, Matéria, Checagem, Síntese, Feedback
   AssistenteDesinformacao.Application/     # casos de uso e portas (interfaces): ResponderConsulta, ColetarFeeds, limites, métricas
   AssistenteDesinformacao.Infrastructure/  # IA, Fact Check, RSS, EF Core/Postgres (migrations), injeção de dependências
-  AssistenteDesinformacao.Bot/             # Worker do Telegram e Program
+  AssistenteDesinformacao.TelegramBot/     # TelegramWorker e Program: tudo o que é específico do Telegram
   AssistenteDesinformacao.Coletor/         # ColetorWorker (feeds RSS), Program e fontes.yaml
 tests/
   AssistenteDesinformacao.Tests/           # xUnit: regras de domínio e anti-alucinação
 ```
 
-A dependência vai sempre de fora para dentro: `Bot` e `Coletor` → `Infrastructure` → `Application` → `Domain`. O caso de uso central é o `ResponderConsulta`, testado com doubles para a IA e as fontes.
+A dependência vai sempre de fora para dentro: `TelegramBot` e `Coletor` → `Infrastructure` → `Application` → `Domain`. O caso de uso central é o `ResponderConsulta`, testado com doubles para a IA e as fontes.
 
 Principais tecnologias: [Telegram.Bot](https://github.com/TelegramBots/Telegram.Bot) (long polling), `Microsoft.Extensions.AI` com cliente OpenAI-compatível, EF Core + Npgsql, Postgres 18 com full-text search e [pgvector](https://github.com/pgvector/pgvector) (busca híbrida combinada por RRF), YamlDotNet e `System.ServiceModel.Syndication` (RSS).
 

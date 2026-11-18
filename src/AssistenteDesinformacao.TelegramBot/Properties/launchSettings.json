@@ -1,7 +1,7 @@
 ﻿{
   "$schema": "https://json.schemastore.org/launchsettings.json",
   "profiles": {
-    "AssistenteDesinformacao.Bot": {
+    "AssistenteDesinformacao.TelegramBot": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "environmentVariables": {

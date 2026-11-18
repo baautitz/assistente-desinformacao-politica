@@ -1,5 +1,6 @@
 services:
-  bot:
+  # Bot do Telegram. Outro canal (ex.: WhatsApp) entra como outro serviço, com o seu próprio projeto.
+  telegram-bot:
     image: ghcr.io/baautitz/assistente-desinformacao-politica:latest
     restart: unless-stopped
     env_file: .env
@@ -9,7 +10,7 @@ services:
       db:
         condition: service_healthy
 
-  # Mesma imagem do bot, outro processo: lê os feeds RSS e grava as Matérias no Postgres.
+  # Mesma imagem, outro processo: lê os feeds RSS e grava as Matérias no Postgres.
   coletor:
     image: ghcr.io/baautitz/assistente-desinformacao-politica:latest
     restart: unless-stopped

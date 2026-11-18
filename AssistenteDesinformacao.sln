@@ -7,7 +7,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AssistenteDesinformacao.Application", "src\AssistenteDesinformacao.Application\AssistenteDesinformacao.Application.csproj", "{1FC0E6A6-917C-442F-9BE4-DD429EF8408F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AssistenteDesinformacao.Bot", "src\AssistenteDesinformacao.Bot\AssistenteDesinformacao.Bot.csproj", "{D3F522CB-4DC9-44F6-8BCB-5931D44C3458}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AssistenteDesinformacao.TelegramBot", "src\AssistenteDesinformacao.TelegramBot\AssistenteDesinformacao.TelegramBot.csproj", "{D3F522CB-4DC9-44F6-8BCB-5931D44C3458}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AssistenteDesinformacao.Domain", "src\AssistenteDesinformacao.Domain\AssistenteDesinformacao.Domain.csproj", "{7D22218B-FC8D-4484-8EF5-675B6DD0088B}"
 EndProject

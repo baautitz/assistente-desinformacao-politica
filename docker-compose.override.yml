@@ -2,11 +2,11 @@
 # builda a imagem do código e expõe o Postgres.
 # Na VPS use `docker compose -f docker-compose.yml up -d` para ignorar este arquivo.
 services:
-  bot:
+  telegram-bot:
     build: .
     pull_policy: never
 
-  # Mesmo build do bot (o Docker reaproveita o cache), para subir o coletor sozinho também.
+  # Mesmo build do telegram-bot (o Docker reaproveita o cache), para subir o coletor sozinho também.
   coletor:
     build: .
     pull_policy: never
