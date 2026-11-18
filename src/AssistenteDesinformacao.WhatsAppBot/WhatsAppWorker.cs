@@ -17,7 +17,7 @@ namespace AssistenteDesinformacao.WhatsAppBot;
 /// </summary>
 public sealed class WhatsAppWorker(
     ClienteEvolution evolution,
-    FeedbackPorEmoji feedback,
+    FeedbackPorNumero feedback,
     IServiceScopeFactory escopos,
     LimitadorDeConsultas limitador,
     ILogger<WhatsAppWorker> logger) : BackgroundService
@@ -75,22 +75,14 @@ public sealed class WhatsAppWorker(
     {
         var texto = mensagem.Texto.Trim();
 
-        // Toque no botão 👍/👎: o id do botão já traz a resposta e o voto, não depende de memória.
-        if (mensagem.IdDoBotao is not null)
-        {
-            if (DadosDoBotao.TentarLer(mensagem.IdDoBotao, out var idDaResposta, out var botaoUtil))
-                await RegistrarVoto(mensagem.Chat, idDaResposta, botaoUtil, ct);
-            return;
-        }
-
         if (feedback.TentarVotar(mensagem.Chat, texto, out var respostaId, out var util))
         {
             await RegistrarVoto(mensagem.Chat, respostaId, util, ct);
             return;
         }
 
-        // Reação que não é voto (ou voto solto, "1"/"2"/emoji, sem resposta esperando) não é uma consulta.
-        if (mensagem.EhReacao || FeedbackPorEmoji.EhVoto(texto))
+        // Reação (qualquer emoji) e "1"/"2" sem resposta esperando não são consulta.
+        if (mensagem.EhReacao || FeedbackPorNumero.EhVoto(texto))
             return;
 
         if (!mensagem.TemImagem && Saudacoes.Contains(texto))
@@ -118,11 +110,11 @@ public sealed class WhatsAppWorker(
             await PedirAvaliacao(mensagem.Chat, id, ct);
     }
 
-    // Avaliação por texto: a pessoa responde 1 (útil) ou 2 (não ajudou). Botões não aparecem de forma confiável sem a API oficial.
+    // Avaliação por texto: a pessoa responde 1 (útil) ou 2 (não ajudou).
     private async Task PedirAvaliacao(string chat, Guid respostaId, CancellationToken ct)
     {
         feedback.Lembrar(chat, respostaId);
-        await evolution.EnviarTextoAsync(chat, FeedbackPorEmoji.Convite, ct);
+        await evolution.EnviarTextoAsync(chat, FeedbackPorNumero.Convite, ct);
     }
 
     // O voto grava só id da resposta, voto e data: nada do usuário nem da mensagem é guardado.

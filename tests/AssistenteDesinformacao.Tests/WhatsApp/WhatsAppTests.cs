@@ -23,19 +23,6 @@ public class LeitorDeWebhookTests
         Assert.False(lida.TemImagem);
     }
 
-    [Theory]
-    [InlineData("""{"interactiveResponseMessage":{"nativeFlowResponseMessage":{"name":"quick_reply","paramsJson":"{\"id\":\"fb:abc:1\",\"display_text\":\"Útil\"}"}}}""")]
-    [InlineData("""{"buttonsResponseMessage":{"selectedButtonId":"fb:abc:1","selectedDisplayText":"Útil"}}""")]
-    [InlineData("""{"templateButtonReplyMessage":{"selectedId":"fb:abc:1"}}""")]
-    public void Le_o_id_do_botao_tocado(string mensagem)
-    {
-        var lida = LeitorDeWebhook.Ler(Webhook(Pessoa, mensagem));
-
-        Assert.NotNull(lida);
-        Assert.Equal("fb:abc:1", lida.IdDoBotao);
-        Assert.False(lida.TemImagem);
-    }
-
     [Fact]
     public void Le_texto_de_resposta_ou_link()
     {
@@ -94,34 +81,32 @@ public class LeitorDeWebhookTests
         Assert.Null(LeitorDeWebhook.Ler(json));
 }
 
-public class FeedbackPorEmojiTests
+public class FeedbackPorNumeroTests
 {
     [Theory]
     [InlineData("1", true)]
     [InlineData("2", true)]
-    [InlineData("👍", true)]
+    [InlineData("👍", false)]
     [InlineData("12", false)]
     [InlineData("1 tá errado isso", false)]
     [InlineData("obrigado", false)]
     public void Reconhece_o_que_e_voto(string texto, bool esperado) =>
-        Assert.Equal(esperado, FeedbackPorEmoji.EhVoto(texto));
+        Assert.Equal(esperado, FeedbackPorNumero.EhVoto(texto));
 
     [Fact]
     public void Um_ou_dois_sem_resposta_esperando_nao_registra_voto()
     {
-        var feedback = new FeedbackPorEmoji();
+        var feedback = new FeedbackPorNumero();
 
         Assert.False(feedback.TentarVotar("chat", "1", out _, out _));
     }
 
     [Theory]
-    [InlineData("👍", true)]
-    [InlineData(" 👎 ", false)]
     [InlineData("1", true)]
     [InlineData(" 2 ", false)]
     public void Voto_corresponde_a_ultima_resposta_do_chat(string emoji, bool esperado)
     {
-        var feedback = new FeedbackPorEmoji();
+        var feedback = new FeedbackPorNumero();
         var resposta = Guid.NewGuid();
         feedback.Lembrar("chat", resposta);
 
@@ -133,44 +118,44 @@ public class FeedbackPorEmojiTests
     [Fact]
     public void Voto_vale_uma_vez_so()
     {
-        var feedback = new FeedbackPorEmoji();
+        var feedback = new FeedbackPorNumero();
         feedback.Lembrar("chat", Guid.NewGuid());
 
-        Assert.True(feedback.TentarVotar("chat", "👍", out _, out _));
-        Assert.False(feedback.TentarVotar("chat", "👍", out _, out _));
+        Assert.True(feedback.TentarVotar("chat", "1", out _, out _));
+        Assert.False(feedback.TentarVotar("chat", "1", out _, out _));
     }
 
     [Fact]
     public void Sem_resposta_esperando_ou_com_texto_comum_nao_e_voto()
     {
-        var feedback = new FeedbackPorEmoji();
+        var feedback = new FeedbackPorNumero();
 
-        Assert.False(feedback.TentarVotar("chat", "👍", out _, out _));
+        Assert.False(feedback.TentarVotar("chat", "1", out _, out _));
 
         feedback.Lembrar("chat", Guid.NewGuid());
         Assert.False(feedback.TentarVotar("chat", "obrigado", out _, out _));
-        Assert.True(feedback.TentarVotar("chat", "👍", out _, out _));
+        Assert.True(feedback.TentarVotar("chat", "1", out _, out _));
     }
 
     [Fact]
     public void Resposta_antiga_nao_recebe_voto()
     {
         var relogio = new RelogioManual();
-        var feedback = new FeedbackPorEmoji(relogio);
+        var feedback = new FeedbackPorNumero(relogio);
         feedback.Lembrar("chat", Guid.NewGuid());
 
         relogio.Advance(TimeSpan.FromHours(25));
 
-        Assert.False(feedback.TentarVotar("chat", "👍", out _, out _));
+        Assert.False(feedback.TentarVotar("chat", "1", out _, out _));
     }
 
     [Fact]
     public void Voto_de_um_chat_nao_atinge_outro()
     {
-        var feedback = new FeedbackPorEmoji();
+        var feedback = new FeedbackPorNumero();
         feedback.Lembrar("a", Guid.NewGuid());
 
-        Assert.False(feedback.TentarVotar("b", "👍", out _, out _));
+        Assert.False(feedback.TentarVotar("b", "1", out _, out _));
     }
 
     [Fact]

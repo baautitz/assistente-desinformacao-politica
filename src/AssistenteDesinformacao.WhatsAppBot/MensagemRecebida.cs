@@ -5,9 +5,8 @@ namespace AssistenteDesinformacao.WhatsAppBot;
 /// <summary>Mensagem de um chat individual, já separada do JSON da Evolution API. Nunca é persistida.</summary>
 /// <param name="Chat">JID do chat (ex.: 5511999999999@s.whatsapp.net): é para onde a resposta vai.</param>
 /// <param name="Texto">Texto digitado, legenda da imagem ou emoji de uma reação; vazio se não houver.</param>
-/// <param name="IdDoBotao">Só quando a pessoa tocou num botão de resposta: o id que o bot mandou no botão.</param>
 /// <param name="ChaveEMensagem">Só nas imagens: o par key/message original, que a Evolution pede para baixar a mídia.</param>
-public sealed record MensagemRecebida(string Id, string Chat, string Texto, bool EhReacao, JsonElement? ChaveEMensagem, string? IdDoBotao = null)
+public sealed record MensagemRecebida(string Id, string Chat, string Texto, bool EhReacao, JsonElement? ChaveEMensagem)
 {
     public bool TemImagem => ChaveEMensagem is not null;
 }
@@ -63,9 +62,6 @@ public static class LeitorDeWebhook
             && Texto(estendida, "text") is { Length: > 0 } estendido)
             return new MensagemRecebida(id, chat, estendido, false, null);
 
-        if (IdDoBotao(mensagem) is { Length: > 0 } botao)
-            return new MensagemRecebida(id, chat, "", false, null, botao);
-
         if (mensagem.TryGetProperty("reactionMessage", out var reacao)
             && Texto(reacao, "text") is { Length: > 0 } emoji)
             return new MensagemRecebida(id, chat, emoji, true, null);
@@ -78,31 +74,6 @@ public static class LeitorDeWebhook
         }
 
         return null;
-    }
-
-    // O clique chega de três formas, conforme a versão do WhatsApp/Baileys: botão nativo (id dentro de um JSON),
-    // botão simples antigo e botão de template.
-    private static string? IdDoBotao(JsonElement mensagem)
-    {
-        if (mensagem.TryGetProperty("interactiveResponseMessage", out var interativa)
-            && interativa.TryGetProperty("nativeFlowResponseMessage", out var fluxo)
-            && Texto(fluxo, "paramsJson") is { Length: > 0 } parametros)
-        {
-            try
-            {
-                using var json = JsonDocument.Parse(parametros);
-                if (json.RootElement.ValueKind == JsonValueKind.Object && Texto(json.RootElement, "id") is { } idNativo)
-                    return idNativo;
-            }
-            catch (JsonException)
-            {
-            }
-        }
-
-        if (mensagem.TryGetProperty("buttonsResponseMessage", out var simples) && Texto(simples, "selectedButtonId") is { } idSimples)
-            return idSimples;
-
-        return mensagem.TryGetProperty("templateButtonReplyMessage", out var modelo) ? Texto(modelo, "selectedId") : null;
     }
 
     private static string? Texto(JsonElement objeto, string campo) =>
