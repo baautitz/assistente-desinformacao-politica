@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-AssistenteDesinformacao.WhatsAppBot-3f1c7a52-6e0b-4c8e-9a41-5d2b8e7f0c19</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AssistenteDesinformacao.Application\AssistenteDesinformacao.Application.csproj" />
+    <ProjectReference Include="..\AssistenteDesinformacao.Infrastructure\AssistenteDesinformacao.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

@@ -33,6 +33,7 @@
     <ProjectReference Include="..\..\src\AssistenteDesinformacao.Domain\AssistenteDesinformacao.Domain.csproj" />
     <ProjectReference Include="..\..\src\AssistenteDesinformacao.Application\AssistenteDesinformacao.Application.csproj" />
     <ProjectReference Include="..\..\src\AssistenteDesinformacao.Infrastructure\AssistenteDesinformacao.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\AssistenteDesinformacao.WhatsAppBot\AssistenteDesinformacao.WhatsAppBot.csproj" />
   </ItemGroup>
 
 </Project>

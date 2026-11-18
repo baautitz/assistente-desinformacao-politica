@@ -92,6 +92,25 @@ Pré-requisitos: [Docker](https://docs.docker.com/get-docker/) com Compose, e as
 
 O `docker-compose.override.yml` é carregado sozinho: builda a imagem do código local (em vez de baixar a publicada) e expõe o Postgres em `localhost:5432`. O compose sobe três serviços: `telegram-bot`, `coletor` (feeds RSS) e `db`. As migrations rodam na subida do bot e do coletor.
 
+## WhatsApp (opcional)
+
+O bot também atende pelo WhatsApp, **sem a API oficial**, usando a [Evolution API](https://github.com/EvolutionAPI/evolution-api) (sessão por QR code, como o WhatsApp Web). Usa o mesmo caso de uso do Telegram. Só sobe com o perfil `whatsapp`; quem usa apenas o Telegram não precisa configurar nada.
+
+1. No `.env`, defina `EVOLUTION_API_KEY` e `WHATSAPP_WEBHOOK_TOKEN` (dois segredos inventados por você) e, se quiser, `EVOLUTION_INSTANCIA` (padrão `bot`).
+2. Suba com `docker compose --profile whatsapp up -d`.
+3. Crie a instância e leia o QR code:
+
+   ```bash
+   curl -X POST http://localhost:8080/instance/create \
+     -H "apikey: $EVOLUTION_API_KEY" -H "Content-Type: application/json" \
+     -d '{"instanceName":"bot","integration":"WHATSAPP-BAILEYS","qrcode":true}'
+   ```
+
+   Depois abra `http://localhost:8080/manager` e escaneie o QR em WhatsApp > Aparelhos conectados. A porta só abre na própria máquina; na VPS, use túnel SSH (`ssh -L 8080:localhost:8080 usuario@vps`).
+4. Mande `oi` para o número conectado.
+
+Diferenças do Telegram: a avaliação vem em botões 👍/👎 (se o WhatsApp não aceitar os botões, o bot cai para resposta com 👍 ou 👎, ou reação); e não há mensagem de status editada, só "digitando...". A Evolution não guarda mensagens (só a sessão), e o bot não registra texto nem telefone.
+
 ## Variáveis de ambiente
 
 Ficam no arquivo `.env` (modelo em [`.env.example`](.env.example)). O `.env` e o `.env.example` precisam andar juntos: ao criar uma variável nova, adicione nos dois lugares e nesta tabela.

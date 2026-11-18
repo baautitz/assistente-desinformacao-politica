@@ -6,6 +6,10 @@ services:
     build: .
     pull_policy: never
 
+  whatsapp-bot:
+    build: .
+    pull_policy: never
+
   # Mesmo build do telegram-bot (o Docker reaproveita o cache), para subir o coletor sozinho também.
   coletor:
     build: .
