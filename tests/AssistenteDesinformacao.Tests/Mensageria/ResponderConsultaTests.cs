@@ -265,6 +265,8 @@ public class ResponderConsultaTests
     [InlineData("As fontes relatam isso, Having completion context: According to the agencies, nada.", true)]
     [InlineData("A agência classificou como falso e explicou o motivo.", false)]
     [InlineData("A agência disse 这是假的 sobre o caso.", true)]
+    [InlineData("A CNN registrou a proposta. Need final proper. Wait I accidentally inserted weird.", true)]
+    [InlineData("O Metrópoles relata que Cury defendeu drones contra feminicídio no JN.", false)]
     public void Detecta_texto_fora_do_portugues(string texto, bool fora) =>
         Assert.Equal(fora, GuardrailsDeNeutralidade.TemTextoForaDoPortugues(texto));
 
@@ -278,6 +280,17 @@ public class ResponderConsultaTests
 
         Assert.Equal("Segundo a agência, é falso.", sintese.Resumo);
         Assert.Equal(2, redator.Chamadas);
+    }
+
+    [Fact]
+    public async Task Resumo_com_defeito_e_refeito_ate_sair_limpo()
+    {
+        var redator = new RedatorSequencial("According to the agencies, lixo.", "Need final proper, lixo.", "Wait, lixo.", "Segundo a agência, é falso.");
+
+        var sintese = await Criar(["alegação"], [ChecagemRecente], redator).ExecutarAsync(new Consulta("texto"));
+
+        Assert.Equal("Segundo a agência, é falso.", sintese.Resumo);
+        Assert.Equal(ResponderConsulta.MaximoDeTentativasDoResumo, redator.Chamadas);
     }
 
     [Fact]

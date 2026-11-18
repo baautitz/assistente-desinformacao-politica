@@ -21,6 +21,7 @@ public sealed class ResponderConsulta(
     public const int MaximoDeAlegacoes = 3;
     public const int MaximoDeTentativasDeBusca = 3;
     private const string MotivoForaDoPortugues = "texto fora do português";
+    public const int MaximoDeTentativasDoResumo = 4;
     public const int MaximoDeFontes = 5;
     public const int MaximoDeCaracteresDaBusca = 500;
     public const int MaximoDeBytesDaImagem = 5 * 1024 * 1024;
@@ -98,12 +99,12 @@ public sealed class ResponderConsulta(
         var tentativa = 0;
         do
         {
-            // O modelo às vezes mistura idiomas ou solta lixo: uma nova tentativa costuma resolver.
+            // O modelo às vezes mistura idiomas, solta palavras inventadas ou vaza o próprio raciocínio: uma nova tentativa costuma resolver.
             resumo = (await redator.RedigirAsync(alegacoes, fontes, ct)).Trim();
             motivo = await MotivoParaDescartarAsync(resumo, fontes, ct);
             tentativa++;
         }
-        while (motivo == MotivoForaDoPortugues && tentativa < 2);
+        while (motivo == MotivoForaDoPortugues && tentativa < MaximoDeTentativasDoResumo);
         if (motivo is null)
             logger.LogInformation("Resumo aprovado pelos guardrails; {Fontes} fontes ({Checagens} checagens)",
                 fontes.Count, fontes.Count(f => f is Checagem));
