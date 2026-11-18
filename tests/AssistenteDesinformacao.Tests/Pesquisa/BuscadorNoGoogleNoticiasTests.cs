@@ -39,4 +39,32 @@ public class BuscadorNoGoogleNoticiasTests
         Assert.Equal("G1", fonte.Veiculo);
         Assert.Equal(new DateOnly(2026, 8, 29), fonte.DataPublicacao);
     }
+
+    [Fact]
+    public void Descarta_fontes_de_veiculos_fora_da_lista_confiavel()
+    {
+        const string xml = """
+            <rss version="2.0"><channel>
+              <item><title>Boa - G1</title><link>https://news.google.com/rss/articles/a</link>
+                <pubDate>Sat, 29 Aug 2026 22:00:00 GMT</pubDate><source url="https://g1.globo.com">G1</source></item>
+              <item><title>Post - Instagram</title><link>https://news.google.com/rss/articles/b</link>
+                <pubDate>Sat, 29 Aug 2026 22:00:00 GMT</pubDate><source url="https://www.instagram.com">Instagram</source></item>
+              <item><title>Boato - Blog</title><link>https://news.google.com/rss/articles/c</link>
+                <pubDate>Sat, 29 Aug 2026 22:00:00 GMT</pubDate><source url="https://g1.globo.com.site-falso.com">Blog</source></item>
+            </channel></rss>
+            """;
+
+        var fontes = BuscadorNoGoogleNoticias.Ler(new MemoryStream(Encoding.UTF8.GetBytes(xml)));
+
+        Assert.Equal("G1", Assert.Single(fontes).Veiculo);
+    }
+
+    [Theory]
+    [InlineData("https://g1.globo.com", true)]
+    [InlineData("https://www.folha.uol.com.br", true)]
+    [InlineData("https://www.instagram.com", false)]
+    [InlineData("https://g1.globo.com.site-falso.com", false)]
+    [InlineData("https://fakeg1.globo.com.br", false)]
+    public void Confere_o_dominio_inteiro_e_nao_so_o_final(string endereco, bool esperado) =>
+        Assert.Equal(esperado, VeiculosConfiaveis.Aceita(new Uri(endereco)));
 }
