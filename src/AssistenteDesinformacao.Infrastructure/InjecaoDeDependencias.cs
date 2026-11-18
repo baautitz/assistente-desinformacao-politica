@@ -71,12 +71,18 @@ public static class InjecaoDeDependencias
             http.BaseAddress = BuscadorNaFactCheck.Endereco;
             http.DefaultRequestHeaders.Add(BuscadorNaFactCheck.CabecalhoDaChave, factCheck.Chave);
         });
+        services.AddHttpClient<BuscadorNoGoogleNoticias>(http =>
+        {
+            http.Timeout = TimeSpan.FromSeconds(15);
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+        });
         services.AddSingleton<IGeradorDeTermosDeBusca, GeradorDeTermosComIa>();
         services.AddScoped<IBuscaDeMaterias, BuscaDeMateriasNoPostgres>();
         services.AddScoped<IBuscaVetorialDeMaterias, BuscaVetorialNoPostgres>();
         services.AddScoped<IBuscadorDeFontes>(sp => new BuscadorCombinado(
             [
                 sp.GetRequiredService<BuscadorNaFactCheck>(),
+                sp.GetRequiredService<BuscadorNoGoogleNoticias>(),
                 new BuscadorDeMaterias(
                     sp.GetRequiredService<IGeradorDeTermosDeBusca>(), sp.GetRequiredService<IBuscaDeMaterias>(),
                     sp.GetService<IGeradorDeEmbeddings>(), sp.GetRequiredService<IBuscaVetorialDeMaterias>(),
