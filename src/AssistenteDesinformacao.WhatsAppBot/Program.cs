@@ -22,7 +22,7 @@ builder.Services.AddHttpClient("evolution", http =>
 builder.Services.AddSingleton(sp =>
     new ClienteEvolution(sp.GetRequiredService<IHttpClientFactory>().CreateClient("evolution"), instancia));
 
-builder.Services.AddSingleton<FeedbackPorEmoji>();
+builder.Services.AddSingleton<FeedbackPorNumero>();
 builder.Services.AddSingleton<WhatsAppWorker>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<WhatsAppWorker>());
 builder.Services.AdicionarInfraestruturaDoBot(builder.Configuration);
