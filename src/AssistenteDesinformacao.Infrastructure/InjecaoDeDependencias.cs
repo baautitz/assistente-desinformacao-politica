@@ -76,6 +76,12 @@ public static class InjecaoDeDependencias
             http.Timeout = TimeSpan.FromSeconds(15);
             http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
         });
+        services.AddHttpClient<IEnriquecedorDeFontes, LeitorDeMateria>(http =>
+        {
+            http.Timeout = TimeSpan.FromSeconds(10);
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36");
+            http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("pt-BR");
+        });
         services.AddSingleton<IGeradorDeTermosDeBusca, GeradorDeTermosComIa>();
         services.AddScoped<IBuscaDeMaterias, BuscaDeMateriasNoPostgres>();
         services.AddScoped<IBuscaVetorialDeMaterias, BuscaVetorialNoPostgres>();

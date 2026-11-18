@@ -18,7 +18,8 @@ public sealed class ResponderConsulta(
     ILogger<ResponderConsulta> logger,
     IJuizDeRelevancia? juiz = null,
     IVerificadorDeResumo? verificador = null,
-    IJuizDeMensagem? juizDeMensagem = null)
+    IJuizDeMensagem? juizDeMensagem = null,
+    IEnriquecedorDeFontes? enriquecedor = null)
 {
     public const int MaximoDeAlegacoes = 3;
     public const int MaximoDeTentativasDeBusca = 3;
@@ -113,6 +114,19 @@ public sealed class ResponderConsulta(
         {
             logger.LogInformation("Nenhuma fonte relevante: respondendo que não encontrou apuração");
             return Mensagem(MensagensDoBot.SemApuracao);
+        }
+
+        // As fontes já foram escolhidas: agora lê o começo do texto de cada uma para o resumo não depender só do título.
+        if (enriquecedor is not null)
+        {
+            try
+            {
+                fontes = await enriquecedor.EnriquecerAsync(fontes, ct);
+            }
+            catch (Exception erro) when (erro is not OperationCanceledException)
+            {
+                logger.LogWarning(erro, "Falha ao ler o texto das matérias; seguindo só com os títulos");
+            }
         }
 
         progresso?.Report(EtapaDaConsulta.Escrevendo);

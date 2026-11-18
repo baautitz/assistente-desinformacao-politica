@@ -374,6 +374,31 @@ public class ResponderConsultaTests
     }
 
     [Fact]
+    public async Task Redator_recebe_o_texto_lido_das_materias_e_a_sintese_mantem_os_links()
+    {
+        var redator = new RedatorFalso("resumo neutro");
+
+        var sintese = await Criar(["alegação"], [ChecagemRecente], redator, enriquecedor: new EnriquecedorFalso())
+            .ExecutarAsync(new Consulta("texto"));
+
+        Assert.Equal("TEXTO DA MATÉRIA", Assert.Single(redator.FontesRecebidas!).Trecho);
+        Assert.Equal(ChecagemRecente.Link, Assert.Single(sintese.Fontes).Link);
+        Assert.Equal("resumo neutro", sintese.Resumo);
+    }
+
+    [Fact]
+    public async Task Falha_ao_ler_as_materias_segue_so_com_os_titulos()
+    {
+        var redator = new RedatorFalso("resumo neutro");
+
+        var sintese = await Criar(["alegação"], [ChecagemRecente], redator, enriquecedor: new EnriquecedorQueFalha())
+            .ExecutarAsync(new Consulta("texto"));
+
+        Assert.Equal("resumo neutro", sintese.Resumo);
+        Assert.Equal(ChecagemRecente.Trecho, Assert.Single(redator.FontesRecebidas!).Trecho);
+    }
+
+    [Fact]
     public async Task Juiza_que_falha_nao_derruba_a_resposta()
     {
         var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso("resumo neutro"), juizDeMensagem: new JuizDeMensagemQueFalha());
@@ -492,9 +517,21 @@ public class ResponderConsultaTests
         Assert.Equal(bloqueia, AssistenteDesinformacao.Infrastructure.Analise.ClassificadorDeNeutralidadeComIa.Interpretar(resposta));
 
     private static ResponderConsulta Criar(string[] alegacoes, IReadOnlyList<Fonte> fontes, IRedatorDeSintese redator,
-        ClassificadorDeNeutralidadeFalso? classificador = null, IVerificadorDeResumo? verificador = null, IJuizDeMensagem? juizDeMensagem = null) =>
+        ClassificadorDeNeutralidadeFalso? classificador = null, IVerificadorDeResumo? verificador = null, IJuizDeMensagem? juizDeMensagem = null, IEnriquecedorDeFontes? enriquecedor = null) =>
         new(new ExtratorFalso(alegacoes), new ExtratorDeImagemFalso(alegacoes, disponivel: true), new BuscadorFalso(fontes), redator,
-            classificador ?? ClassificadorDeNeutralidadeFalso.Liberando, NullLogger<ResponderConsulta>.Instance, verificador: verificador, juizDeMensagem: juizDeMensagem);
+            classificador ?? ClassificadorDeNeutralidadeFalso.Liberando, NullLogger<ResponderConsulta>.Instance, verificador: verificador, juizDeMensagem: juizDeMensagem, enriquecedor: enriquecedor);
+
+    private sealed class EnriquecedorFalso : IEnriquecedorDeFontes
+    {
+        public Task<IReadOnlyList<Fonte>> EnriquecerAsync(IReadOnlyList<Fonte> fontes, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<Fonte>>(fontes.Select(f => f with { Trecho = "TEXTO DA MATÉRIA" }).ToList());
+    }
+
+    private sealed class EnriquecedorQueFalha : IEnriquecedorDeFontes
+    {
+        public Task<IReadOnlyList<Fonte>> EnriquecerAsync(IReadOnlyList<Fonte> fontes, CancellationToken ct) =>
+            throw new HttpRequestException("sem rede");
+    }
 
     private sealed class JuizDeMensagemFalso(TipoDeMensagem tipo) : IJuizDeMensagem
     {
