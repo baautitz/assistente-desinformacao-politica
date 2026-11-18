@@ -343,6 +343,44 @@ public class ResponderConsultaTests
     }
 
     [Fact]
+    public async Task Resumo_que_o_verificador_reprova_e_refeito_ate_ser_aprovado()
+    {
+        var redator = new RedatorSequencial("O G1 relata que Cury lidera as pesquisas com 35%.", "O G1 relata que Cury propõe drones.");
+        var verificador = new VerificadorFalso(r => !r.Contains("35%"));
+
+        var sintese = await Criar(["alegação"], [ChecagemRecente], redator, verificador: verificador).ExecutarAsync(new Consulta("texto"));
+
+        Assert.Equal("O G1 relata que Cury propõe drones.", sintese.Resumo);
+        Assert.Equal(2, verificador.Chamadas);
+    }
+
+    [Fact]
+    public async Task Resumo_que_o_verificador_sempre_reprova_vira_so_a_lista_de_fontes()
+    {
+        var redator = new RedatorSequencial("Resumo com fato inventado.");
+        var verificador = new VerificadorFalso(_ => false);
+
+        var sintese = await Criar(["alegação"], [ChecagemRecente], redator, verificador: verificador).ExecutarAsync(new Consulta("texto"));
+
+        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
+        Assert.Equal([ChecagemRecente], sintese.Fontes);
+        Assert.Equal(ResponderConsulta.MaximoDeTentativasDoResumo, redator.Chamadas);
+    }
+
+    [Fact]
+    public async Task Verificador_que_falha_manda_so_a_lista_de_fontes_sem_repetir()
+    {
+        var redator = new RedatorSequencial("Resumo bom.");
+        var verificador = new VerificadorQueFalha();
+
+        var sintese = await Criar(["alegação"], [ChecagemRecente], redator, verificador: verificador).ExecutarAsync(new Consulta("texto"));
+
+        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
+        Assert.Equal([ChecagemRecente], sintese.Fontes);
+        Assert.Equal(1, verificador.Chamadas);
+    }
+
+    [Fact]
     public async Task Resumo_que_continua_misturado_vira_so_a_lista_de_fontes()
     {
         var redator = new RedatorSequencial("According to the agencies, lixo.", "Having completion context, lixo.");
@@ -401,9 +439,31 @@ public class ResponderConsultaTests
         Assert.Equal(bloqueia, AssistenteDesinformacao.Infrastructure.Analise.ClassificadorDeNeutralidadeComIa.Interpretar(resposta));
 
     private static ResponderConsulta Criar(string[] alegacoes, IReadOnlyList<Fonte> fontes, IRedatorDeSintese redator,
-        ClassificadorDeNeutralidadeFalso? classificador = null) =>
+        ClassificadorDeNeutralidadeFalso? classificador = null, IVerificadorDeResumo? verificador = null) =>
         new(new ExtratorFalso(alegacoes), new ExtratorDeImagemFalso(alegacoes, disponivel: true), new BuscadorFalso(fontes), redator,
-            classificador ?? ClassificadorDeNeutralidadeFalso.Liberando, NullLogger<ResponderConsulta>.Instance);
+            classificador ?? ClassificadorDeNeutralidadeFalso.Liberando, NullLogger<ResponderConsulta>.Instance, verificador: verificador);
+
+    private sealed class VerificadorFalso(Func<string, bool> aprova) : IVerificadorDeResumo
+    {
+        public int Chamadas { get; private set; }
+
+        public Task<bool> EstaFundamentadoAsync(string resumo, IReadOnlyList<Fonte> fontes, CancellationToken ct)
+        {
+            Chamadas++;
+            return Task.FromResult(aprova(resumo));
+        }
+    }
+
+    private sealed class VerificadorQueFalha : IVerificadorDeResumo
+    {
+        public int Chamadas { get; private set; }
+
+        public Task<bool> EstaFundamentadoAsync(string resumo, IReadOnlyList<Fonte> fontes, CancellationToken ct)
+        {
+            Chamadas++;
+            throw new HttpRequestException("sem rede");
+        }
+    }
 
     private static ResponderConsulta CriarSemVisao() =>
         new(new ExtratorFalso(["alegação"]), new ExtratorDeImagemFalso(["alegação"], disponivel: false),

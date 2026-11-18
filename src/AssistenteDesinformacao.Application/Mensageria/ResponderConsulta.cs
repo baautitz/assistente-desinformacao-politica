@@ -16,11 +16,13 @@ public sealed class ResponderConsulta(
     IRedatorDeSintese redator,
     IClassificadorDeNeutralidade neutralidade,
     ILogger<ResponderConsulta> logger,
-    IJuizDeRelevancia? juiz = null)
+    IJuizDeRelevancia? juiz = null,
+    IVerificadorDeResumo? verificador = null)
 {
     public const int MaximoDeAlegacoes = 3;
     public const int MaximoDeTentativasDeBusca = 3;
     private const string MotivoForaDoPortugues = "texto fora do português";
+    private const string MotivoNaoFundamentado = "resumo não apoiado pelas fontes";
     public const int MaximoDeTentativasDoResumo = 4;
     public const int MaximoDeFontes = 5;
     public const int MaximoDeCaracteresDaBusca = 500;
@@ -119,7 +121,7 @@ public sealed class ResponderConsulta(
             motivo = await MotivoParaDescartarAsync(resumo, fontes, ct);
             tentativa++;
         }
-        while (motivo == MotivoForaDoPortugues && tentativa < MaximoDeTentativasDoResumo);
+        while (motivo is MotivoForaDoPortugues or MotivoNaoFundamentado && tentativa < MaximoDeTentativasDoResumo);
         if (motivo is null)
             logger.LogInformation("Resumo aprovado pelos guardrails; {Fontes} fontes ({Checagens} checagens)",
                 fontes.Count, fontes.Count(f => f is Checagem));
@@ -141,6 +143,21 @@ public sealed class ResponderConsulta(
             return "link fora das fontes";
         if (GuardrailsDeNeutralidade.TemVereditoPorContaPropria(resumo, fontes))
             return "veredito sem agência";
+        // Por último, porque é uma chamada à IA: só roda se as regras baratas acima já aprovaram.
+        if (verificador is not null)
+        {
+            try
+            {
+                if (!await verificador.EstaFundamentadoAsync(resumo, fontes, ct))
+                    return MotivoNaoFundamentado;
+            }
+            catch (Exception erro) when (erro is not OperationCanceledException)
+            {
+                // Sem conseguir conferir, não envia o resumo (nem repete a tentativa): vai só a lista de fontes.
+                logger.LogWarning(erro, "Falha ao verificar o resumo contra as fontes");
+                return "verificador indisponível";
+            }
+        }
         return null;
     }
 
