@@ -266,6 +266,8 @@ public class ResponderConsultaTests
     [InlineData("A agência classificou como falso e explicou o motivo.", false)]
     [InlineData("A agência disse 这是假的 sobre o caso.", true)]
     [InlineData("A CNN registrou a proposta. Need final proper. Wait I accidentally inserted weird.", true)]
+    [InlineData("O G1 publish que Augusto Cury propõe um ministério da IA.", true)]
+    [InlineData("Cury propõe treinar embaixadores para serem influencers e usar drones.", false)]
     [InlineData("O Metrópoles relata que Cury defendeu drones contra feminicídio no JN.", false)]
     public void Detecta_texto_fora_do_portugues(string texto, bool fora) =>
         Assert.Equal(fora, GuardrailsDeNeutralidade.TemTextoForaDoPortugues(texto));

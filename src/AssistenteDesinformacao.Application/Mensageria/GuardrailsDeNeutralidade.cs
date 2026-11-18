@@ -29,8 +29,9 @@ public static partial class GuardrailsDeNeutralidade
 
     private static readonly string[] Atribuicoes = ["segundo", "de acordo com", "conforme", "classificou", "classificação", "para a agência", "para o "];
 
-    /// <summary>Palavras comuns do inglês e alfabetos que não são o nosso: sinal de que o modelo misturou idiomas, soltou lixo ou vazou o próprio raciocínio ("Need ...", "Wait ...").</summary>
-    [GeneratedRegex(@"\b(the|of|and|according|having|statements?|agencies|context|completion|that|with|were|not|need|wait|must|should|accidentally|allegation|sentences?)\b|[\u0400-\u04FF\u0590-\u05FF\u0600-\u06FF\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF]",
+    /// <summary>Palavras comuns do inglês e alfabetos que não são o nosso: sinal de que o modelo misturou idiomas, soltou lixo ou vazou o próprio raciocínio ("Need ...", "Wait ...").
+    /// Só entram palavras que não existem em português nem aparecem nas matérias coletadas (fora "influencers", "drones" e "will", que aparecem).</summary>
+    [GeneratedRegex(@"\b(the|of|and|according|having|statements?|agencies|context|completion|that|with|were|not|need|wait|must|should|accidentally|allegation|sentences?|publish(?:es|ed)?|says?|said|reports?|reported|claims?|claimed|propos(?:es|ed)|defend(?:s|ed)|about|from|which|who|also|have|has|been|but|into|their|they|this|these|those|when|while|would|could|because|after|before|between|during|greater|embassy|government|minister|ministry|candidate|election)\b|[\u0400-\u04FF\u0590-\u05FF\u0600-\u06FF\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF]",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ForaDoPortugues();
 
