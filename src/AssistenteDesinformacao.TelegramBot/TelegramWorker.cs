@@ -11,9 +11,9 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 
-namespace AssistenteDesinformacao.Bot;
+namespace AssistenteDesinformacao.TelegramBot;
 
-public class Worker(ITelegramBotClient bot, IServiceScopeFactory escopos, LimitadorDeConsultas limitador, IConfiguration config, ILogger<Worker> logger) : BackgroundService
+public class TelegramWorker(ITelegramBotClient bot, IServiceScopeFactory escopos, LimitadorDeConsultas limitador, IConfiguration config, ILogger<TelegramWorker> logger) : BackgroundService
 {
     private static readonly LinkPreviewOptions SemPrevia = new() { IsDisabled = true };
 
