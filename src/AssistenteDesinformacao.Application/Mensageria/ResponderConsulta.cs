@@ -17,7 +17,8 @@ public sealed class ResponderConsulta(
     IClassificadorDeNeutralidade neutralidade,
     ILogger<ResponderConsulta> logger,
     IJuizDeRelevancia? juiz = null,
-    IVerificadorDeResumo? verificador = null)
+    IVerificadorDeResumo? verificador = null,
+    IJuizDeMensagem? juizDeMensagem = null)
 {
     public const int MaximoDeAlegacoes = 3;
     public const int MaximoDeTentativasDeBusca = 3;
@@ -76,6 +77,10 @@ public sealed class ResponderConsulta(
                 logger.LogInformation("Pedido de recomendação de voto: respondendo sem buscar fontes");
                 return Mensagem(MensagensDoBot.NaoRecomendoVoto);
             }
+
+            // A IA julga toda mensagem antes de buscar: pedido de voto, pedido de opinião/ranking e assunto fora do escopo não têm o que apurar.
+            if (juizDeMensagem is not null && await JulgarMensagemAsync(consulta.Texto, juizDeMensagem, ct) is { } recusa)
+                return Mensagem(recusa);
 
             extraidas = await extrator.ExtrairAsync(consulta.Texto, ct);
             // Opinião ou previsão ("fulano vai destruir o país") não tem fato isolado, mas o assunto tem apuração publicada.
@@ -210,6 +215,30 @@ public sealed class ResponderConsulta(
     /// </summary>
     private async Task<bool> InduzVotoAsync(string texto, CancellationToken ct) =>
         GuardrailsDeNeutralidade.TemRecomendacaoEleitoral(texto) || await neutralidade.InduzVotoAsync(texto, ct);
+
+    /// <summary>Texto da recusa quando a juíza barra a mensagem; nulo quando a mensagem segue para a apuração. Se a IA falhar, segue (os guardrails continuam valendo).</summary>
+    private async Task<string?> JulgarMensagemAsync(string texto, IJuizDeMensagem juiz, CancellationToken ct)
+    {
+        TipoDeMensagem tipo;
+        try
+        {
+            tipo = await juiz.JulgarAsync(texto, ct);
+        }
+        catch (Exception erro) when (erro is not OperationCanceledException)
+        {
+            logger.LogWarning(erro, "Falha ao julgar a mensagem; seguindo com a apuração normal");
+            return null;
+        }
+
+        logger.LogInformation("Mensagem julgada como {Tipo}", tipo);
+        return tipo switch
+        {
+            TipoDeMensagem.PedidoDeVoto => MensagensDoBot.NaoRecomendoVoto,
+            TipoDeMensagem.PedidoDeOpiniao => MensagensDoBot.NaoOpino,
+            TipoDeMensagem.ForaDoEscopo => MensagensDoBot.ForaDoEscopo,
+            _ => null,
+        };
+    }
 
     private static Sintese Mensagem(string texto) => new(texto, []);
 }

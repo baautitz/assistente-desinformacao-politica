@@ -342,6 +342,59 @@ public class ResponderConsultaTests
         Assert.Equal(ResponderConsulta.MaximoDeTentativasDoResumo, redator.Chamadas);
     }
 
+    [Theory]
+    [InlineData(TipoDeMensagem.PedidoDeVoto, "Não recomendo candidato, partido ou voto")]
+    [InlineData(TipoDeMensagem.PedidoDeOpiniao, "Não dou opinião nem faço ranking")]
+    [InlineData(TipoDeMensagem.ForaDoEscopo, "Eu confiro afirmações e notícias sobre política")]
+    public async Task Juiza_que_recusa_a_mensagem_responde_sem_extrair_nem_buscar(TipoDeMensagem tipo, string inicioDaResposta)
+    {
+        var redator = new RedatorFalso("não deveria ser chamado");
+        var juiza = new JuizDeMensagemFalso(tipo);
+
+        var sintese = await Criar(["alegação"], [ChecagemRecente], redator, juizDeMensagem: juiza)
+            .ExecutarAsync(new Consulta("qual o partido mais honesto do país?"));
+
+        Assert.StartsWith(inicioDaResposta, sintese.Resumo);
+        Assert.Empty(sintese.Fontes);
+        Assert.Null(redator.FontesRecebidas);
+        Assert.Equal(1, juiza.Chamadas);
+    }
+
+    [Theory]
+    [InlineData(TipoDeMensagem.Afirmacao)]
+    [InlineData(TipoDeMensagem.Opiniao)]
+    public async Task Juiza_que_libera_a_mensagem_segue_para_a_apuracao(TipoDeMensagem tipo)
+    {
+        var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso("resumo neutro"), juizDeMensagem: new JuizDeMensagemFalso(tipo));
+
+        var sintese = await caso.ExecutarAsync(new Consulta("Lula gastou R$ 7 bilhões com viagens"));
+
+        Assert.Equal("resumo neutro", sintese.Resumo);
+        Assert.Equal([ChecagemRecente], sintese.Fontes);
+    }
+
+    [Fact]
+    public async Task Juiza_que_falha_nao_derruba_a_resposta()
+    {
+        var caso = Criar(["alegação"], [ChecagemRecente], new RedatorFalso("resumo neutro"), juizDeMensagem: new JuizDeMensagemQueFalha());
+
+        var sintese = await caso.ExecutarAsync(new Consulta("texto"));
+
+        Assert.Equal("resumo neutro", sintese.Resumo);
+    }
+
+    [Fact]
+    public async Task Imagem_nao_passa_pela_juiza_de_mensagem_de_texto()
+    {
+        var juiza = new JuizDeMensagemFalso(TipoDeMensagem.PedidoDeOpiniao);
+        var img = Consulta.DePrint(new Imagem([1, 2, 3], "image/png"));
+
+        var sintese = await Criar(["alegação"], [ChecagemRecente], new RedatorFalso("resumo"), juizDeMensagem: juiza).ExecutarAsync(img);
+
+        Assert.Equal("resumo", sintese.Resumo);
+        Assert.Equal(0, juiza.Chamadas);
+    }
+
     [Fact]
     public async Task Resumo_que_o_verificador_reprova_e_refeito_ate_ser_aprovado()
     {
@@ -439,9 +492,25 @@ public class ResponderConsultaTests
         Assert.Equal(bloqueia, AssistenteDesinformacao.Infrastructure.Analise.ClassificadorDeNeutralidadeComIa.Interpretar(resposta));
 
     private static ResponderConsulta Criar(string[] alegacoes, IReadOnlyList<Fonte> fontes, IRedatorDeSintese redator,
-        ClassificadorDeNeutralidadeFalso? classificador = null, IVerificadorDeResumo? verificador = null) =>
+        ClassificadorDeNeutralidadeFalso? classificador = null, IVerificadorDeResumo? verificador = null, IJuizDeMensagem? juizDeMensagem = null) =>
         new(new ExtratorFalso(alegacoes), new ExtratorDeImagemFalso(alegacoes, disponivel: true), new BuscadorFalso(fontes), redator,
-            classificador ?? ClassificadorDeNeutralidadeFalso.Liberando, NullLogger<ResponderConsulta>.Instance, verificador: verificador);
+            classificador ?? ClassificadorDeNeutralidadeFalso.Liberando, NullLogger<ResponderConsulta>.Instance, verificador: verificador, juizDeMensagem: juizDeMensagem);
+
+    private sealed class JuizDeMensagemFalso(TipoDeMensagem tipo) : IJuizDeMensagem
+    {
+        public int Chamadas { get; private set; }
+
+        public Task<TipoDeMensagem> JulgarAsync(string texto, CancellationToken ct)
+        {
+            Chamadas++;
+            return Task.FromResult(tipo);
+        }
+    }
+
+    private sealed class JuizDeMensagemQueFalha : IJuizDeMensagem
+    {
+        public Task<TipoDeMensagem> JulgarAsync(string texto, CancellationToken ct) => throw new HttpRequestException("sem rede");
+    }
 
     private sealed class VerificadorFalso(Func<string, bool> aprova) : IVerificadorDeResumo
     {
