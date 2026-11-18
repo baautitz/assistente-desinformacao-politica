@@ -7,6 +7,7 @@ using System.Xml.Linq;
 using AssistenteDesinformacao.Application.Pesquisa;
 using AssistenteDesinformacao.Domain.Analise;
 using AssistenteDesinformacao.Domain.Pesquisa;
+using Microsoft.Extensions.Logging;
 
 namespace AssistenteDesinformacao.Infrastructure.Pesquisa;
 
@@ -14,8 +15,12 @@ namespace AssistenteDesinformacao.Infrastructure.Pesquisa;
 /// Busca matérias na hora pelo feed de busca do Google Notícias, sem depender do que o coletor já guardou.
 /// Tenta as palavras-chave inteiras e depois só as primeiras, porque o Google exige todas as palavras.
 /// </summary>
-public sealed partial class BuscadorNoGoogleNoticias(HttpClient http, int janelaEmDias = 90) : IBuscadorDeFontes
+public sealed partial class BuscadorNoGoogleNoticias(
+    HttpClient http, int janelaEmDias = 90, ILogger<BuscadorNoGoogleNoticias>? logger = null) : IBuscadorDeFontes
 {
+    /// <summary>Poucas chamadas ao Google ao mesmo tempo: dez de uma vez fazem alguns links falharem de forma intermitente.</summary>
+    private readonly SemaphoreSlim _vagas = new(4);
+
     public const int Maximo = 10;
 
     /// <summary>Poupa as vagas dos 10 resultados; o filtro de veículos confiáveis em <see cref="Ler"/> é a garantia.</summary>
@@ -61,16 +66,31 @@ public sealed partial class BuscadorNoGoogleNoticias(HttpClient http, int janela
 
     private async Task<Uri> ResolverSemFalharAsync(Uri link, CancellationToken ct)
     {
-        using var limite = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        limite.CancelAfter(TimeSpan.FromSeconds(6));
-        try
+        for (var tentativa = 1; tentativa <= 2; tentativa++)
         {
-            return await ResolverAsync(link, limite.Token) ?? link;
+            await _vagas.WaitAsync(ct);
+            try
+            {
+                using var limite = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                limite.CancelAfter(TimeSpan.FromSeconds(8));
+                if (await ResolverAsync(link, limite.Token) is { } direto)
+                    return direto;
+                logger?.LogWarning("Google Notícias: sem endereço direto na tentativa {Tentativa}", tentativa);
+            }
+            catch (Exception erro) when (!ct.IsCancellationRequested)
+            {
+                logger?.LogWarning("Google Notícias: falha ao resolver o link na tentativa {Tentativa}: {Erro}", tentativa, erro.Message);
+            }
+            finally
+            {
+                _vagas.Release();
+            }
+
+            if (tentativa == 1)
+                await Task.Delay(400, ct);
         }
-        catch (Exception) when (!ct.IsCancellationRequested)
-        {
-            return link;
-        }
+
+        return link; // sem endereço direto, o link do Google ainda leva à matéria
     }
 
     /// <summary>
