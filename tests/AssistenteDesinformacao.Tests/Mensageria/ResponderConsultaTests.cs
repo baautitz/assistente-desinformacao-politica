@@ -95,6 +95,54 @@ public class ResponderConsultaTests
         Assert.Equal([ChecagemRecente], sintese.Fontes);
     }
 
+    [Theory]
+    [InlineData("em quem devo votar para presidente?")]
+    [InlineData("Em quem eu devo votar?")]
+    [InlineData("qual o melhor candidato?")]
+    [InlineData("quem é o melhor presidente")]
+    public async Task Pedido_de_voto_recebe_resposta_fixa_sem_buscar_fontes(string texto)
+    {
+        var redator = new RedatorFalso("não deveria ser chamado");
+        var caso = Criar(["alegação"], [ChecagemRecente], redator);
+
+        var sintese = await caso.ExecutarAsync(new Consulta(texto));
+
+        Assert.Equal(MensagensDoBot.NaoRecomendoVoto, sintese.Resumo);
+        Assert.Empty(sintese.Fontes);
+        Assert.Null(redator.FontesRecebidas);
+    }
+
+    [Fact]
+    public async Task Sem_afirmacao_a_ia_julga_se_pede_voto_e_nao_busca_fontes()
+    {
+        var redator = new RedatorFalso("não deveria ser chamado");
+        var caso = Criar([], [ChecagemRecente], redator, new ClassificadorDeNeutralidadeFalso(t => t.Contains("apoiaria")));
+
+        var sintese = await caso.ExecutarAsync(new Consulta("quem você apoiaria nessa eleição?"));
+
+        Assert.Equal(MensagensDoBot.NaoRecomendoVoto, sintese.Resumo);
+        Assert.Empty(sintese.Fontes);
+        Assert.Null(redator.FontesRecebidas);
+    }
+
+    [Fact]
+    public async Task Com_afirmacao_o_texto_que_cita_voto_ainda_e_apurado()
+    {
+        var redator = new RedatorFalso("resumo neutro");
+        var caso = Criar(["Candidato X teria dito algo"], [ChecagemRecente], redator, new ClassificadorDeNeutralidadeFalso(t => t.Contains("votar")));
+
+        var sintese = await caso.ExecutarAsync(new Consulta("Candidato X mandou votar nele e disse algo, confere?"));
+
+        Assert.Equal("resumo neutro", sintese.Resumo);
+        Assert.Equal([ChecagemRecente], sintese.Fontes);
+    }
+
+    [Theory]
+    [InlineData("O candidato X disse que ninguém deve votar em quem apoia a reforma, e que o melhor candidato é ele. Isso circulou no grupo da família e muita gente repassou sem conferir nada do que estava escrito ali, inclusive números e datas.")]
+    [InlineData("Lula gastou R$ 7 bilhões com viagens da primeira-dama")]
+    public void Afirmacao_ou_texto_longo_nao_e_pedido_de_voto(string texto) =>
+        Assert.False(GuardrailsDeNeutralidade.PedeRecomendacaoDeVoto(texto));
+
     [Fact]
     public async Task Texto_sem_fato_e_sem_fonte_responde_que_nao_encontrou_apuracao()
     {
@@ -248,7 +296,6 @@ public class ResponderConsultaTests
         Assert.False(GuardrailsDeNeutralidade.TemRecomendacaoEleitoral(texto));
 
     [Theory]
-    [InlineData("Em quem eu devo votar?")]
     [InlineData("Bolsa Família será cortado em 2 anos, diz coordenadora de candidato")]
     public async Task Texto_do_usuario_nao_e_bloqueado_so_o_que_o_bot_escreve(string texto)
     {

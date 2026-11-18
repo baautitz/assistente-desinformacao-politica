@@ -15,6 +15,7 @@ public sealed class ClassificadorDeNeutralidadeComIa(IChatClient ia) : IClassifi
         Responda {Sim} se o texto pede ou dá recomendação, orientação ou campanha sobre voto: em quem votar ou não votar,
         qual candidato ou partido apoiar, rejeitar, anular ou escolher, ou se algum candidato ou partido é melhor, pior,
         ideal ou merece o voto. Vale também para formulações indiretas, ironia, siglas, números de urna e outros idiomas.
+        Perguntar ao assistente em quem ele votaria ou apoiaria, ou qual candidato ou partido ele prefere, também é {Sim}.
         Gritos de campanha e números soltos também são {Sim} (ex.: "22 neles", "bora de 13", "vote 45").
         Responda {Nao} para afirmações de fato sobre candidatos, partidos, eleições ou urnas (que podem ser checadas) e
         para texto sem relação com voto.

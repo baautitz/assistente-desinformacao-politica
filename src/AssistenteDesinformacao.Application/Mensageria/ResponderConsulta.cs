@@ -68,9 +68,24 @@ public sealed class ResponderConsulta(
         {
             if (string.IsNullOrWhiteSpace(consulta.Texto))
                 return Mensagem(MensagensDoBot.SemAlegacao);
+            // Pré-julgamento: pedido de voto não é afirmação para conferir. Responde direto, sem gastar IA nem buscar fonte.
+            if (GuardrailsDeNeutralidade.PedeRecomendacaoDeVoto(consulta.Texto))
+            {
+                logger.LogInformation("Pedido de recomendação de voto: respondendo sem buscar fontes");
+                return Mensagem(MensagensDoBot.NaoRecomendoVoto);
+            }
+
             extraidas = await extrator.ExtrairAsync(consulta.Texto, ct);
             // Opinião ou previsão ("fulano vai destruir o país") não tem fato isolado, mas o assunto tem apuração publicada.
             // Em vez de pedir outro texto ao usuário, o bot busca pelo que ele escreveu.
+            // Sem afirmação, a IA julga se a mensagem pede ou induz voto (regex só como atalho). Se sim, não há o que apurar:
+            // buscar pelo texto traria notícia aleatória de política. Só roda sem afirmação, para não barrar notícia encaminhada que cita voto.
+            if (extraidas.Count == 0 && await InduzVotoAsync(consulta.Texto, ct))
+            {
+                logger.LogInformation("Mensagem sem afirmação que pede ou induz voto: respondendo sem buscar fontes");
+                return Mensagem(MensagensDoBot.NaoRecomendoVoto);
+            }
+
             if (extraidas.Count == 0)
             {
                 logger.LogInformation("Nenhum fato isolado na mensagem; buscando pelo texto como um todo");

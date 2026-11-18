@@ -28,6 +28,9 @@ public static class MensagensDoBot
     public const string SemAlegacao =
         "Não identifiquei uma afirmação que dê para conferir. Me mande o texto completo que você recebeu, com a afirmação sobre fatos (quem disse o quê, números, datas).";
 
+    public const string NaoRecomendoVoto =
+        "Não recomendo candidato, partido ou voto: essa escolha é sua. Posso ajudar a conferir uma notícia ou afirmação sobre política que você recebeu. É só me mandar o texto ou o print.";
+
     public const string SoLeTexto = "No momento eu só consigo ler texto. Digite ou cole o conteúdo do print aqui na conversa.";
 
     public const string ImagemGrande = "Essa imagem é grande demais para eu ler. Mande um print menor ou cole o texto aqui.";
