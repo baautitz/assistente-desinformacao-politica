@@ -11,10 +11,9 @@ services:
         condition: service_healthy
 
   # Bot do WhatsApp (sem API oficial): recebe as mensagens por webhook da Evolution API e responde por ela.
-  # Só sobe com `--profile whatsapp`, para quem usa apenas o Telegram não precisar configurar nada.
+  # Sobe junto com tudo; o pareamento do número é feito pela interface da Evolution (http://localhost:8080/manager).
   whatsapp-bot:
     image: ghcr.io/baautitz/assistente-desinformacao-politica:latest
-    profiles: [whatsapp]
     restart: unless-stopped
     working_dir: /app/whatsapp-bot
     entrypoint: ["dotnet", "AssistenteDesinformacao.WhatsAppBot.dll"]
@@ -33,7 +32,6 @@ services:
   # Mensagens NÃO são salvas (todos os DATABASE_SAVE_* abaixo, menos o da instância, ficam em false), como o resto do projeto.
   evolution:
     image: evoapicloud/evolution-api:v2.3.7
-    profiles: [whatsapp]
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080" # só na própria máquina: para ler o QR code em http://localhost:8080/manager (na VPS, use túnel SSH)

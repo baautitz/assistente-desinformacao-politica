@@ -97,8 +97,28 @@ public class LeitorDeWebhookTests
 public class FeedbackPorEmojiTests
 {
     [Theory]
+    [InlineData("1", true)]
+    [InlineData("2", true)]
+    [InlineData("👍", true)]
+    [InlineData("12", false)]
+    [InlineData("1 tá errado isso", false)]
+    [InlineData("obrigado", false)]
+    public void Reconhece_o_que_e_voto(string texto, bool esperado) =>
+        Assert.Equal(esperado, FeedbackPorEmoji.EhVoto(texto));
+
+    [Fact]
+    public void Um_ou_dois_sem_resposta_esperando_nao_registra_voto()
+    {
+        var feedback = new FeedbackPorEmoji();
+
+        Assert.False(feedback.TentarVotar("chat", "1", out _, out _));
+    }
+
+    [Theory]
     [InlineData("👍", true)]
     [InlineData(" 👎 ", false)]
+    [InlineData("1", true)]
+    [InlineData(" 2 ", false)]
     public void Voto_corresponde_a_ultima_resposta_do_chat(string emoji, bool esperado)
     {
         var feedback = new FeedbackPorEmoji();

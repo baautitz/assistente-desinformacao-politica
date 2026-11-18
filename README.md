@@ -90,14 +90,14 @@ Pré-requisitos: [Docker](https://docs.docker.com/get-docker/) com Compose, e as
 
 5. Abra o seu bot no Telegram e mande `/start`.
 
-O `docker-compose.override.yml` é carregado sozinho: builda a imagem do código local (em vez de baixar a publicada) e expõe o Postgres em `localhost:5432`. O compose sobe três serviços: `telegram-bot`, `coletor` (feeds RSS) e `db`. As migrations rodam na subida do bot e do coletor.
+O `docker-compose.override.yml` é carregado sozinho: builda a imagem do código local (em vez de baixar a publicada) e expõe o Postgres em `localhost:5432`. O compose sobe `telegram-bot`, `coletor` (feeds RSS), `db`, e também `whatsapp-bot` e `evolution` (veja [WhatsApp](#whatsapp-opcional)). As migrations rodam na subida do bot e do coletor.
 
 ## WhatsApp (opcional)
 
-O bot também atende pelo WhatsApp, **sem a API oficial**, usando a [Evolution API](https://github.com/EvolutionAPI/evolution-api) (sessão por QR code, como o WhatsApp Web). Usa o mesmo caso de uso do Telegram. Só sobe com o perfil `whatsapp`; quem usa apenas o Telegram não precisa configurar nada.
+O bot também atende pelo WhatsApp, **sem a API oficial**, usando a [Evolution API](https://github.com/EvolutionAPI/evolution-api) (sessão por QR code, como o WhatsApp Web). Usa o mesmo caso de uso do Telegram. Sobe junto com o resto no `docker compose up`; o número só passa a responder depois de pareado pela interface da Evolution (passo 3).
 
 1. No `.env`, defina `EVOLUTION_API_KEY` e `WHATSAPP_WEBHOOK_TOKEN` (dois segredos inventados por você) e, se quiser, `EVOLUTION_INSTANCIA` (padrão `bot`).
-2. Suba com `docker compose --profile whatsapp up -d`.
+2. Suba tudo com `docker compose up -d`.
 3. Crie a instância e leia o QR code:
 
    ```bash
