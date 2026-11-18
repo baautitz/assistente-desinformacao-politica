@@ -89,8 +89,8 @@ public sealed class WhatsAppWorker(
             return;
         }
 
-        // Reação que não é voto (ou emoji solto de voto sem resposta esperando) não é uma consulta.
-        if (mensagem.EhReacao || EhEmojiDeVoto(texto))
+        // Reação que não é voto (ou voto solto, "1"/"2"/emoji, sem resposta esperando) não é uma consulta.
+        if (mensagem.EhReacao || FeedbackPorEmoji.EhVoto(texto))
             return;
 
         if (!mensagem.TemImagem && Saudacoes.Contains(texto))
@@ -118,27 +118,12 @@ public sealed class WhatsAppWorker(
             await PedirAvaliacao(mensagem.Chat, id, ct);
     }
 
-    // Botões 👍/👎. Se a Evolution/WhatsApp não aceitar botões, cai para o voto por emoji (resposta com 👍 ou 👎).
+    // Avaliação por texto: a pessoa responde 1 (útil) ou 2 (não ajudou). Botões não aparecem de forma confiável sem a API oficial.
     private async Task PedirAvaliacao(string chat, Guid respostaId, CancellationToken ct)
     {
-        try
-        {
-            await evolution.EnviarBotoesAsync(chat, FeedbackPorEmoji.Pergunta,
-            [
-                (DadosDoBotao.Gerar(respostaId, true), $"{DadosDoBotao.TextoUtil} Útil"),
-                (DadosDoBotao.Gerar(respostaId, false), $"{DadosDoBotao.TextoInutil} Não ajudou"),
-            ], ct);
-        }
-        catch (Exception erro) when (erro is not OperationCanceledException)
-        {
-            logger.LogWarning(erro, "Não foi possível enviar os botões de avaliação; usando 👍/👎 por texto");
-            feedback.Lembrar(chat, respostaId);
-            await evolution.EnviarTextoAsync(chat, FeedbackPorEmoji.Convite, ct);
-        }
+        feedback.Lembrar(chat, respostaId);
+        await evolution.EnviarTextoAsync(chat, FeedbackPorEmoji.Convite, ct);
     }
-
-    private static bool EhEmojiDeVoto(string texto) =>
-        texto.StartsWith("👍", StringComparison.Ordinal) || texto.StartsWith("👎", StringComparison.Ordinal);
 
     // O voto grava só id da resposta, voto e data: nada do usuário nem da mensagem é guardado.
     private async Task RegistrarVoto(string chat, Guid respostaId, bool util, CancellationToken ct)

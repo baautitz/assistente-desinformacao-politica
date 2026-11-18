@@ -3,13 +3,13 @@ using System.Collections.Concurrent;
 namespace AssistenteDesinformacao.WhatsAppBot;
 
 /// <summary>
-/// Plano B do voto, para quando os botões não puderem ser enviados: um 👍 ou 👎 (texto ou reação) logo após a resposta.
+/// Voto por resposta curta logo após a síntese: "1" (útil) ou "2" (não ajudou), ou ainda 👍/👎 (texto ou reação).
+/// Os botões da Evolution (sem API oficial) não aparecem de forma confiável no WhatsApp, então o voto é sempre por texto.
 /// Guarda, só em memória e por pouco tempo, o id da última resposta que pediu avaliação em cada chat.
 /// </summary>
 public sealed class FeedbackPorEmoji(TimeProvider? relogio = null)
 {
-    public const string Pergunta = "Essa resposta foi útil?";
-    public const string Convite = "Foi útil? Responda com 👍 ou 👎.";
+    public const string Convite = "Essa resposta foi útil?\nResponda 1 👍 (útil) ou 2 👎 (não ajudou).";
 
     private static readonly TimeSpan Validade = TimeSpan.FromHours(24);
     private const int LimiteParaLimpeza = 1000;
@@ -24,17 +24,23 @@ public sealed class FeedbackPorEmoji(TimeProvider? relogio = null)
         _pendentes[chat] = (respostaId, _relogio.GetUtcNow());
     }
 
-    /// <summary>Interpreta o emoji; devolve false se não for um voto ou se não há resposta esperando avaliação. O voto vale uma vez só.</summary>
+    /// <summary>"1", "2", 👍 e 👎 são votos, mesmo quando não há resposta esperando (nesse caso não viram consulta).</summary>
+    public static bool EhVoto(string texto)
+    {
+        var t = texto.Trim();
+        return t is "1" or "2" || t.StartsWith("👍", StringComparison.Ordinal) || t.StartsWith("👎", StringComparison.Ordinal);
+    }
+
+    /// <summary>Interpreta o voto; devolve false se não for um voto ou se não há resposta esperando avaliação. O voto vale uma vez só.</summary>
     public bool TentarVotar(string chat, string texto, out Guid respostaId, out bool util)
     {
         respostaId = default;
         util = false;
 
-        var emoji = texto.Trim();
-        if (emoji.StartsWith("👍", StringComparison.Ordinal))
-            util = true;
-        else if (!emoji.StartsWith("👎", StringComparison.Ordinal))
+        var voto = texto.Trim();
+        if (!EhVoto(voto))
             return false;
+        util = voto == "1" || voto.StartsWith("👍", StringComparison.Ordinal);
 
         if (!_pendentes.TryRemove(chat, out var pendente) || _relogio.GetUtcNow() - pendente.Quando > Validade)
             return false;
