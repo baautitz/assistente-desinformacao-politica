@@ -3,11 +3,12 @@ using System.Collections.Concurrent;
 namespace AssistenteDesinformacao.WhatsAppBot;
 
 /// <summary>
-/// O WhatsApp sem API oficial não tem botão: o voto é um 👍 ou 👎 (texto ou reação) logo após a resposta.
+/// Plano B do voto, para quando os botões não puderem ser enviados: um 👍 ou 👎 (texto ou reação) logo após a resposta.
 /// Guarda, só em memória e por pouco tempo, o id da última resposta que pediu avaliação em cada chat.
 /// </summary>
 public sealed class FeedbackPorEmoji(TimeProvider? relogio = null)
 {
+    public const string Pergunta = "Essa resposta foi útil?";
     public const string Convite = "Foi útil? Responda com 👍 ou 👎.";
 
     private static readonly TimeSpan Validade = TimeSpan.FromHours(24);

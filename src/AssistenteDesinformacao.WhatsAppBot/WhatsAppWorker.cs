@@ -75,6 +75,14 @@ public sealed class WhatsAppWorker(
     {
         var texto = mensagem.Texto.Trim();
 
+        // Toque no botão 👍/👎: o id do botão já traz a resposta e o voto, não depende de memória.
+        if (mensagem.IdDoBotao is not null)
+        {
+            if (DadosDoBotao.TentarLer(mensagem.IdDoBotao, out var idDaResposta, out var botaoUtil))
+                await RegistrarVoto(mensagem.Chat, idDaResposta, botaoUtil, ct);
+            return;
+        }
+
         if (feedback.TentarVotar(mensagem.Chat, texto, out var respostaId, out var util))
         {
             await RegistrarVoto(mensagem.Chat, respostaId, util, ct);
@@ -102,9 +110,31 @@ public sealed class WhatsAppWorker(
             return;
         }
 
-        var resposta = await Gerar(mensagem, ct);
+        var (resposta, paraAvaliar) = await Gerar(mensagem, ct);
         await evolution.EnviarTextoAsync(mensagem.Chat, resposta, ct);
         logger.LogInformation("Resposta enviada");
+
+        if (paraAvaliar is { } id)
+            await PedirAvaliacao(mensagem.Chat, id, ct);
+    }
+
+    // Botões 👍/👎. Se a Evolution/WhatsApp não aceitar botões, cai para o voto por emoji (resposta com 👍 ou 👎).
+    private async Task PedirAvaliacao(string chat, Guid respostaId, CancellationToken ct)
+    {
+        try
+        {
+            await evolution.EnviarBotoesAsync(chat, FeedbackPorEmoji.Pergunta,
+            [
+                (DadosDoBotao.Gerar(respostaId, true), $"{DadosDoBotao.TextoUtil} Útil"),
+                (DadosDoBotao.Gerar(respostaId, false), $"{DadosDoBotao.TextoInutil} Não ajudou"),
+            ], ct);
+        }
+        catch (Exception erro) when (erro is not OperationCanceledException)
+        {
+            logger.LogWarning(erro, "Não foi possível enviar os botões de avaliação; usando 👍/👎 por texto");
+            feedback.Lembrar(chat, respostaId);
+            await evolution.EnviarTextoAsync(chat, FeedbackPorEmoji.Convite, ct);
+        }
     }
 
     private static bool EhEmojiDeVoto(string texto) =>
@@ -129,7 +159,7 @@ public sealed class WhatsAppWorker(
         }
     }
 
-    private async Task<string> Gerar(MensagemRecebida mensagem, CancellationToken ct)
+    private async Task<(string Texto, Guid? RespostaId)> Gerar(MensagemRecebida mensagem, CancellationToken ct)
     {
         // Enquanto a consulta roda o chat mostra "digitando...".
         using var terminou = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -143,9 +173,9 @@ public sealed class WhatsAppWorker(
             {
                 var imagem = await evolution.BaixarImagemAsync(chaveEMensagem, ct);
                 if (imagem is null)
-                    return MensagensDoBot.Erro;
+                    return (MensagensDoBot.Erro, null);
                 if (imagem.Conteudo.Length > ResponderConsulta.MaximoDeBytesDaImagem)
-                    return MensagensDoBot.ImagemGrande;
+                    return (MensagensDoBot.ImagemGrande, null);
                 consulta = Consulta.DePrint(imagem);
             }
             else
@@ -166,17 +196,13 @@ public sealed class WhatsAppWorker(
             await RegistrarTempo(escopo, cronometro.Elapsed, ct);
 
             var texto = FormatadorDeResposta.Formatar(sintese);
-            if (!sintese.EncontrouFontes)
-                return texto;
-
             // Só uma Síntese real (com fontes) pede avaliação; avisos e recusas não.
-            feedback.Lembrar(mensagem.Chat, Guid.NewGuid());
-            return $"{texto}\n\n{FeedbackPorEmoji.Convite}";
+            return (texto, sintese.EncontrouFontes ? Guid.NewGuid() : null);
         }
         catch (Exception erro) when (erro is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             logger.LogError(erro, "Falha ao responder consulta");
-            return MensagensDoBot.Erro;
+            return (MensagensDoBot.Erro, null);
         }
         finally
         {

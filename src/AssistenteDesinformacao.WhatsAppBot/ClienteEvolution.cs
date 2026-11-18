@@ -14,6 +14,22 @@ public sealed class ClienteEvolution(HttpClient http, string instancia)
         resposta.EnsureSuccessStatusCode();
     }
 
+    /// <summary>Manda uma mensagem com botões de resposta (no máximo 3). O clique volta pelo webhook com o <c>id</c> do botão.</summary>
+    public async Task EnviarBotoesAsync(string chat, string texto, IReadOnlyList<(string Id, string Texto)> botoes, CancellationToken ct)
+    {
+        using var resposta = await http.PostAsJsonAsync(
+            $"message/sendButtons/{instancia}",
+            new
+            {
+                number = chat,
+                title = texto,
+                description = "Toque em um botão",
+                footer = "",
+                buttons = botoes.Select(b => new { type = "reply", displayText = b.Texto, id = b.Id }),
+            }, ct);
+        resposta.EnsureSuccessStatusCode();
+    }
+
     /// <summary>Mostra "digitando..." por <paramref name="duracao"/>; a Evolution só devolve depois desse tempo.</summary>
     public async Task DigitandoAsync(string chat, TimeSpan duracao, CancellationToken ct)
     {

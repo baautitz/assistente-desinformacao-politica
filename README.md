@@ -108,7 +108,7 @@ O bot também atende pelo WhatsApp, **sem a API oficial**, usando a [Evolution A
    Depois abra `http://localhost:8080/manager` e escaneie o QR em WhatsApp > Aparelhos conectados. A porta só abre na própria máquina; na VPS, use túnel SSH (`ssh -L 8080:localhost:8080 usuario@vps`).
 4. Mande `oi` para o número conectado.
 
-Diferenças do Telegram: não há botões, então a avaliação é por resposta com 👍 ou 👎 (ou reação); e não há mensagem de status editada, só "digitando...". A Evolution não guarda mensagens (só a sessão), e o bot não registra texto nem telefone.
+Diferenças do Telegram: a avaliação vem em botões 👍/👎 (se o WhatsApp não aceitar os botões, o bot cai para resposta com 👍 ou 👎, ou reação); e não há mensagem de status editada, só "digitando...". A Evolution não guarda mensagens (só a sessão), e o bot não registra texto nem telefone.
 
 ## Variáveis de ambiente
 

@@ -23,6 +23,19 @@ public class LeitorDeWebhookTests
         Assert.False(lida.TemImagem);
     }
 
+    [Theory]
+    [InlineData("""{"interactiveResponseMessage":{"nativeFlowResponseMessage":{"name":"quick_reply","paramsJson":"{\"id\":\"fb:abc:1\",\"display_text\":\"Útil\"}"}}}""")]
+    [InlineData("""{"buttonsResponseMessage":{"selectedButtonId":"fb:abc:1","selectedDisplayText":"Útil"}}""")]
+    [InlineData("""{"templateButtonReplyMessage":{"selectedId":"fb:abc:1"}}""")]
+    public void Le_o_id_do_botao_tocado(string mensagem)
+    {
+        var lida = LeitorDeWebhook.Ler(Webhook(Pessoa, mensagem));
+
+        Assert.NotNull(lida);
+        Assert.Equal("fb:abc:1", lida.IdDoBotao);
+        Assert.False(lida.TemImagem);
+    }
+
     [Fact]
     public void Le_texto_de_resposta_ou_link()
     {
