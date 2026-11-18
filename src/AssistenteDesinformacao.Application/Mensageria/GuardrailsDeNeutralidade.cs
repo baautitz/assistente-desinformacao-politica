@@ -15,6 +15,20 @@ public static partial class GuardrailsDeNeutralidade
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex RecomendacaoEleitoral();
 
+    /// <summary>
+    /// Pré-julgamento da mensagem do usuário: pergunta direta ao bot pedindo em quem votar ("em quem devo votar?", "qual o melhor candidato?").
+    /// Isso não é uma afirmação para conferir, então o bot nem busca fontes. Só vale para mensagem curta: texto longo é conteúdo encaminhado.
+    /// </summary>
+    [GeneratedRegex(
+        @"\b(em\s+quem\s+(eu\s+)?(devo\s+|vou\s+|posso\s+|deveria\s+)?votar|(devo|deveria|posso)\s+votar|(qual|quem)\s+([ée]\s+)?(o\s+|a\s+)?(melhor|pior)\s+(candidat[oa]|partido|presidente)|qual\s+(candidat[oa]|partido)\s+(devo|eu\s+devo)\s+(votar|escolher))",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex PedidoDeRecomendacao();
+
+    public const int MaximoDoPedidoDeVoto = 160;
+
+    public static bool PedeRecomendacaoDeVoto(string texto) =>
+        texto.Trim().Length <= MaximoDoPedidoDeVoto && PedidoDeRecomendacao().IsMatch(texto);
+
     [GeneratedRegex(@"https?://[^\s)\]>]+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex Links();
 
