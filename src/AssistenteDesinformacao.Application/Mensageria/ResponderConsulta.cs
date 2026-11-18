@@ -16,11 +16,14 @@ public sealed class ResponderConsulta(
     IRedatorDeSintese redator,
     IClassificadorDeNeutralidade neutralidade,
     ILogger<ResponderConsulta> logger,
-    IJuizDeRelevancia? juiz = null)
+    IJuizDeRelevancia? juiz = null,
+    IVerificadorDeResumo? verificador = null,
+    IJuizDeMensagem? juizDeMensagem = null)
 {
     public const int MaximoDeAlegacoes = 3;
     public const int MaximoDeTentativasDeBusca = 3;
     private const string MotivoForaDoPortugues = "texto fora do português";
+    private const string MotivoNaoFundamentado = "resumo não apoiado pelas fontes";
     public const int MaximoDeTentativasDoResumo = 4;
     public const int MaximoDeFontes = 5;
     public const int MaximoDeCaracteresDaBusca = 500;
@@ -75,6 +78,10 @@ public sealed class ResponderConsulta(
                 return Mensagem(MensagensDoBot.NaoRecomendoVoto);
             }
 
+            // A IA julga toda mensagem antes de buscar: pedido de voto, pedido de opinião/ranking e assunto fora do escopo não têm o que apurar.
+            if (juizDeMensagem is not null && await JulgarMensagemAsync(consulta.Texto, juizDeMensagem, ct) is { } recusa)
+                return Mensagem(recusa);
+
             extraidas = await extrator.ExtrairAsync(consulta.Texto, ct);
             // Opinião ou previsão ("fulano vai destruir o país") não tem fato isolado, mas o assunto tem apuração publicada.
             // Em vez de pedir outro texto ao usuário, o bot busca pelo que ele escreveu.
@@ -119,7 +126,7 @@ public sealed class ResponderConsulta(
             motivo = await MotivoParaDescartarAsync(resumo, fontes, ct);
             tentativa++;
         }
-        while (motivo == MotivoForaDoPortugues && tentativa < MaximoDeTentativasDoResumo);
+        while (motivo is MotivoForaDoPortugues or MotivoNaoFundamentado && tentativa < MaximoDeTentativasDoResumo);
         if (motivo is null)
             logger.LogInformation("Resumo aprovado pelos guardrails; {Fontes} fontes ({Checagens} checagens)",
                 fontes.Count, fontes.Count(f => f is Checagem));
@@ -141,6 +148,21 @@ public sealed class ResponderConsulta(
             return "link fora das fontes";
         if (GuardrailsDeNeutralidade.TemVereditoPorContaPropria(resumo, fontes))
             return "veredito sem agência";
+        // Por último, porque é uma chamada à IA: só roda se as regras baratas acima já aprovaram.
+        if (verificador is not null)
+        {
+            try
+            {
+                if (!await verificador.EstaFundamentadoAsync(resumo, fontes, ct))
+                    return MotivoNaoFundamentado;
+            }
+            catch (Exception erro) when (erro is not OperationCanceledException)
+            {
+                // Sem conseguir conferir, não envia o resumo (nem repete a tentativa): vai só a lista de fontes.
+                logger.LogWarning(erro, "Falha ao verificar o resumo contra as fontes");
+                return "verificador indisponível";
+            }
+        }
         return null;
     }
 
@@ -193,6 +215,30 @@ public sealed class ResponderConsulta(
     /// </summary>
     private async Task<bool> InduzVotoAsync(string texto, CancellationToken ct) =>
         GuardrailsDeNeutralidade.TemRecomendacaoEleitoral(texto) || await neutralidade.InduzVotoAsync(texto, ct);
+
+    /// <summary>Texto da recusa quando a juíza barra a mensagem; nulo quando a mensagem segue para a apuração. Se a IA falhar, segue (os guardrails continuam valendo).</summary>
+    private async Task<string?> JulgarMensagemAsync(string texto, IJuizDeMensagem juiz, CancellationToken ct)
+    {
+        TipoDeMensagem tipo;
+        try
+        {
+            tipo = await juiz.JulgarAsync(texto, ct);
+        }
+        catch (Exception erro) when (erro is not OperationCanceledException)
+        {
+            logger.LogWarning(erro, "Falha ao julgar a mensagem; seguindo com a apuração normal");
+            return null;
+        }
+
+        logger.LogInformation("Mensagem julgada como {Tipo}", tipo);
+        return tipo switch
+        {
+            TipoDeMensagem.PedidoDeVoto => MensagensDoBot.NaoRecomendoVoto,
+            TipoDeMensagem.PedidoDeOpiniao => MensagensDoBot.NaoOpino,
+            TipoDeMensagem.ForaDoEscopo => MensagensDoBot.ForaDoEscopo,
+            _ => null,
+        };
+    }
 
     private static Sintese Mensagem(string texto) => new(texto, []);
 }

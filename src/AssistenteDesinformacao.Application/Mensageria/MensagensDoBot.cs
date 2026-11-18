@@ -31,6 +31,12 @@ public static class MensagensDoBot
     public const string NaoRecomendoVoto =
         "Não recomendo candidato, partido ou voto: essa escolha é sua. Posso ajudar a conferir uma notícia ou afirmação sobre política que você recebeu. É só me mandar o texto ou o print.";
 
+    public const string NaoOpino =
+        "Não dou opinião nem faço ranking de partidos, candidatos ou políticos: isso não dá para conferir em fontes. Posso ajudar a conferir uma notícia ou afirmação que você recebeu. É só me mandar o texto ou o print.";
+
+    public const string ForaDoEscopo =
+        "Eu confiro afirmações e notícias sobre política em fontes públicas. Me mande o texto ou o print do que você recebeu e eu busco o que já foi publicado sobre isso.";
+
     public const string SoLeTexto = "No momento eu só consigo ler texto. Digite ou cole o conteúdo do print aqui na conversa.";
 
     public const string ImagemGrande = "Essa imagem é grande demais para eu ler. Mande um print menor ou cole o texto aqui.";

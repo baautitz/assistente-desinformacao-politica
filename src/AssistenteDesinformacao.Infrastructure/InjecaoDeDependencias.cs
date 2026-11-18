@@ -103,6 +103,8 @@ public static class InjecaoDeDependencias
                     .SemRaciocinio(),
                 sp.GetRequiredService<ILogger<ClienteComLog>>())));
         services.AddSingleton<IClassificadorDeNeutralidade, ClassificadorDeNeutralidadeComIa>();
+        services.AddSingleton<IVerificadorDeResumo, VerificadorDeResumoComIa>();
+        services.AddSingleton<IJuizDeMensagem, JuizDeMensagemComIa>();
         services.AddSingleton<IJuizDeRelevancia, JuizDeRelevanciaComIa>();
         services.AddTransient<ResponderConsulta>();
 
