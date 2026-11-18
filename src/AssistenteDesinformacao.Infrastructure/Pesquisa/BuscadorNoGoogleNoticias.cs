@@ -17,6 +17,10 @@ namespace AssistenteDesinformacao.Infrastructure.Pesquisa;
 public sealed partial class BuscadorNoGoogleNoticias(HttpClient http, int janelaEmDias = 90) : IBuscadorDeFontes
 {
     public const int Maximo = 10;
+
+    /// <summary>Poupa as vagas dos 10 resultados; o filtro de veículos confiáveis em <see cref="Ler"/> é a garantia.</summary>
+    private const string SemRedesSociais =
+        " -site:instagram.com -site:facebook.com -site:x.com -site:twitter.com -site:tiktok.com -site:youtube.com -site:kwai.com -site:t.me";
     private const int MenorConsulta = 3;
 
     public async Task<IReadOnlyList<Fonte>> BuscarAsync(Alegacao alegacao, CancellationToken ct)
@@ -140,7 +144,7 @@ public sealed partial class BuscadorNoGoogleNoticias(HttpClient http, int janela
     private async Task<IReadOnlyList<Fonte>> ConsultarAsync(string consulta, CancellationToken ct)
     {
         var url = "https://news.google.com/rss/search"
-            + $"?q={Uri.EscapeDataString($"{consulta} when:{janelaEmDias}d")}&hl=pt-BR&gl=BR&ceid=BR:pt-419";
+            + $"?q={Uri.EscapeDataString($"{consulta} when:{janelaEmDias}d{SemRedesSociais}")}&hl=pt-BR&gl=BR&ceid=BR:pt-419";
         await using var fluxo = await http.GetStreamAsync(url, ct);
         return Ler(fluxo).Take(Maximo).ToList();
     }
@@ -159,6 +163,11 @@ public sealed partial class BuscadorNoGoogleNoticias(HttpClient http, int janela
         var veiculo = item.Element("source")?.Value.Trim();
         if (!Uri.TryCreate(item.Element("link")?.Value, UriKind.Absolute, out var link)
             || string.IsNullOrEmpty(titulo) || string.IsNullOrEmpty(veiculo))
+            return null;
+
+        // O endereço do veículo vem no próprio feed, então dá para barrar antes de resolver o link direto.
+        if (!Uri.TryCreate(item.Element("source")?.Attribute("url")?.Value, UriKind.Absolute, out var site)
+            || !VeiculosConfiaveis.Aceita(site))
             return null;
 
         // O Google acrescenta " - Veículo" ao título.
