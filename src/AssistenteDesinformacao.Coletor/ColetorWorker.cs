@@ -1,8 +1,8 @@
 using AssistenteDesinformacao.Application.Coleta;
 
-namespace AssistenteDesinformacao.Bot;
+namespace AssistenteDesinformacao.Coletor;
 
-/// <summary>Coleta os feeds RSS periodicamente, no mesmo processo do bot.</summary>
+/// <summary>Coleta os feeds RSS periodicamente. Roda no próprio processo, separado dos bots.</summary>
 public class ColetorWorker(IServiceScopeFactory escopos, OpcoesDeColeta opcoes, ILogger<ColetorWorker> logger)
     : BackgroundService
 {
