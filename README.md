@@ -25,7 +25,7 @@ Projeto da disciplina de Inteligência Artificial, curso de Sistemas de Informa�
 
 - Recebe texto ou print de tela pelo Telegram, sem cadastro.
 - Extrai a alegação central da mensagem (até 3 por consulta).
-- Busca checagens na Google Fact Check Tools API e matérias de uma lista de feeds RSS.
+- Busca checagens na Google Fact Check Tools API, matérias de uma lista de feeds RSS e notícias recentes no Google Notícias (só de veículos de uma lista confiável).
 - Responde com um resumo neutro, os links e as datas das fontes.
 - Aceita 👍 ou 👎 em cada resposta, para avaliarmos se ela ajudou.
 - Limita as consultas por usuário (padrão: 5 por minuto).
@@ -46,6 +46,7 @@ Telegram ──► TelegramWorker ──► ResponderConsulta
                           ├─ 1. Extrai alegações (texto, ou print via modelo de visão)
                           ├─ 2. Busca fontes (em paralelo)
                           │      ├─ Google Fact Check Tools API   (Checagens)
+                          │      ├─ Google Notícias (feed de busca, ao vivo, só veículos da lista confiável)
                           │      └─ Postgres: texto + pgvector    (Matérias dos RSS, por relevância)
                           ├─ 3. Juiz de relevância (IA): descarta fonte que não trata da alegação
                           │      └─ nenhuma serviu? reescreve a alegação e busca de novo (até 3 tentativas)
@@ -161,6 +162,14 @@ O Postgres do compose usa a imagem `pgvector/pgvector:pg18`, que já traz a exte
 
 A lista de veículos fica em [`src/AssistenteDesinformacao.Coletor/fontes.yaml`](src/AssistenteDesinformacao.Coletor/fontes.yaml). Para incluir um veículo, adicione um item com `veiculo` e `url`. O coletor (projeto `AssistenteDesinformacao.Coletor`, processo separado do bot) lê todos a cada `COLETA_INTERVALO_MINUTOS`; um feed que falha não derruba os outros, e o motivo aparece nos logs.
 
+### Google Notícias
+
+Além do que o coletor guardou, o bot busca na hora no feed de busca do Google Notícias (`BuscadorNoGoogleNoticias`), nos últimos 90 dias (valor fixo no código, não vem de `COLETA_JANELA_DIAS`). Isso cobre assuntos que nenhum dos feeds RSS trouxe. Não precisa de chave.
+
+- **Só veículos confiáveis:** a lista fechada fica em [`VeiculosConfiaveis.cs`](src/AssistenteDesinformacao.Infrastructure/Pesquisa/VeiculosConfiaveis.cs) (grande imprensa, agências, órgãos públicos e checagem). Redes sociais, blogs e sites de boato ficam de fora: é melhor citar menos fontes do que uma não confiável. Para incluir um veículo, adicione o domínio. A lista só garante a origem, não que a matéria esteja certa.
+- **Link direto:** o feed devolve um redirecionamento do Google; o bot o troca pelo endereço real da matéria. Se não conseguir, mantém o link do Google.
+- **Não é API oficial:** o feed é de uso pessoal e não comercial, e o Google pode mudar ou bloquear sem aviso. Nesse caso o bot continua com Fact Check e RSS, sem quebrar.
+
 ### Dicas
 
 - Para ver só a IA e a busca sem Telegram, rode os testes (sem rede, com doubles) ou o roteiro do classificador (veja [Testes](#testes)).
@@ -264,6 +273,7 @@ Consulta recebida (texto)
 Alegações extraídas: 1
 Chamada à IA em 9.8s (412 tokens de entrada, 530 de saída)
 BuscadorNaFactCheck: 3 fontes em 640 ms
+BuscadorNoGoogleNoticias: 10 fontes em 2400 ms
 BuscadorDeMaterias: 8 fontes em 11200 ms
 Busca 1/3: 11 candidatas (3 checagens), 1 relevantes
 Resumo aprovado pelos guardrails; 1 fontes (1 checagens)
