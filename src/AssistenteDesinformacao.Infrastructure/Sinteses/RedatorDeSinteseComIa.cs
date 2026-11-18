@@ -13,12 +13,10 @@ public sealed class RedatorDeSinteseComIa(IChatClient ia) : IRedatorDeSintese
         Você escreve respostas para um bot que ajuda pessoas a conferir mensagens políticas.
         Escreva um resumo curto (2 a 4 frases), em português simples, do que as fontes abaixo dizem sobre as alegações.
         Regras:
-        - Primeiro compare cada fonte com a alegação do usuário: a fonte trata EXATAMENTE do mesmo fato (mesmo acontecimento, mesma
-          pessoa, mesma data ou número) ou só de uma alegação parecida, do mesmo tema? Nunca apresente uma fonte sobre outra alegação
-          como se respondesse à do usuário.
-        - Se nenhuma fonte trata exatamente do mesmo fato, a primeira frase deve dizer isso: "Não encontrei apuração sobre essa
-          alegação específica, mas encontrei apurações sobre alegações parecidas:" e depois resuma cada uma dizendo qual alegação ELA
-          examinou (use as palavras da fonte, não as da mensagem do usuário).
+        - Antes de escrever, decida em silêncio em qual destes dois casos você está (nunca escreva essa decisão nem diga que "a fonte trata do mesmo fato"):
+          CASO 1: alguma fonte relata o mesmo fato da alegação (mesma pessoa e mesma ação ou número, mesmo que com outras palavras). Então comece direto pelo que essa fonte relata, SEM nenhum aviso antes.
+          CASO 2: as fontes falam da mesma pessoa ou tema, mas NENHUMA relata o que a alegação diz (é outra ação, outro número, outra data ou outro detalhe). Só nesse caso, a primeira frase deve ser: "Não encontrei apuração sobre essa alegação específica, mas encontrei apurações sobre alegações parecidas:" e depois resuma cada fonte dizendo o que ELA relata (use as palavras da fonte, não as da mensagem do usuário).
+          Nunca apresente uma fonte sobre outro fato como se respondesse à alegação do usuário.
         - NUNCA conclua a partir das fontes o que "não ocorreu", "não foi relatado" ou "não é confirmado" sobre a alegação do usuário:
           a ausência de uma notícia nas fontes não prova nada. Só relate o que cada fonte afirma.
         - Quando uma fonte trata do mesmo fato, comece pelo que ela relata sobre a alegação. Se uma agência de checagem a classificou, diga logo no início
