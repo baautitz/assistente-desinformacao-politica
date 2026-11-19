@@ -97,7 +97,7 @@ public class BuscaTextualTests
 
         Assert.Equal([Checagem1.Link, Reportagem.Link], sintese.Fontes.Select(f => f.Link)); // checagem vem antes, mesmo mais antiga
         Assert.All(sintese.Fontes, f => Assert.NotNull(f.DataPublicacao));
-        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo); // link inventado continua barrado
+        Assert.Equal(MensagensDoBot.ResumoDasChecagens([Checagem1]), sintese.Resumo); // link inventado continua barrado: vai o resumo montado da checagem
     }
 
     /// <summary>

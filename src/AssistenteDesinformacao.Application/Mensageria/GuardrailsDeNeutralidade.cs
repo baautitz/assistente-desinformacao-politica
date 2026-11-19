@@ -38,6 +38,12 @@ public static partial class GuardrailsDeNeutralidade
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex Veredito();
 
+    /// <summary>Conclusão tirada da falta de notícia: "não há confirmação", "nada indica", "não foi confirmado".</summary>
+    [GeneratedRegex(
+        @"\bnada\s+indica\b|\b(n[aã]o\s+h[aá]|n[aã]o\s+existe|sem)\s+(qualquer\s+|nenhuma?\s+)?(confirma[cç][aã]o|registro|evid[eê]ncia|ind[ií]cio|prova|informa[cç][oõ]es|not[ií]cia)s?\b|\bn[aã]o\s+(foi|est[aá]|h[aá]\s+nada)\s+(confirmad|comprovad|registrad)[oa]s?\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ConclusaoPorAusencia();
+
     [GeneratedRegex(@"[.!?\n]+", RegexOptions.CultureInvariant)]
     private static partial Regex Frases();
 
@@ -65,6 +71,18 @@ public static partial class GuardrailsDeNeutralidade
             .Where(frase => Veredito().IsMatch(frase))
             .Any(frase => !Atribuicoes.Any(a => frase.Contains(a, StringComparison.OrdinalIgnoreCase))
                 && !fontes.OfType<Checagem>().Any(c => frase.Contains(c.Agencia, StringComparison.OrdinalIgnoreCase)));
+
+    /// <summary>
+    /// Verdadeiro se alguma frase conclui algo da falta de notícia nas fontes ("não há confirmação de que...") sem atribuir a quem disse.
+    /// A ausência de uma notícia nas fontes encontradas não prova nada; se uma fonte afirma isso, a frase cita a fonte.
+    /// </summary>
+    /// Com checagem entre as fontes, a frase não é barrada: a agência apurou e muitas vezes diz justamente que algo não existe
+    /// ("a Folha não publicou essa matéria"), e repetir isso não é concluir pela falta de notícia.
+    public static bool TemConclusaoPorAusencia(string resumo, IReadOnlyList<Fonte> fontes) =>
+        !fontes.OfType<Checagem>().Any() && Frases().Split(resumo)
+            .Where(frase => ConclusaoPorAusencia().IsMatch(frase))
+            .Any(frase => !Atribuicoes.Any(a => frase.Contains(a, StringComparison.OrdinalIgnoreCase))
+                && !fontes.Any(f => frase.Contains(f.Veiculo, StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>Verdadeiro se o resumo cita algum link que não veio das fontes (possível invenção da IA).</summary>
     public static bool CitaLinkForaDasFontes(string resumo, IReadOnlyList<Fonte> fontes) =>

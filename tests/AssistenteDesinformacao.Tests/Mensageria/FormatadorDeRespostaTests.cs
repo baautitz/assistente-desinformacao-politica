@@ -18,7 +18,7 @@ public class FormatadorDeRespostaTests
         var texto = FormatadorDeResposta.Formatar(sintese);
 
         Assert.StartsWith("Resumo.", texto);
-        Assert.Contains("Agência A (05/08/2024): classificou como \"Falso\"", texto);
+        Assert.Contains("Agência A (05/08/2024): Vídeo antigo (classificou como \"Falso\")", texto);
         Assert.Contains("https://agencia.example/checagem", texto);
         Assert.Contains("Jornal B (sem data): Matéria", texto);
         Assert.Contains("https://jornal.example/materia", texto);

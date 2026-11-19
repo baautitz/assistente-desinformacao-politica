@@ -21,8 +21,9 @@ public static class FormatadorDeResposta
         foreach (var fonte in sintese.Fontes)
         {
             texto.Append("• ").Append(fonte.Veiculo).Append(" (").Append(Data(fonte.DataPublicacao)).Append("): ");
+            // Só "classificou como falso" não diz o quê: o título mostra qual afirmação a agência checou.
             texto.AppendLine(fonte is Checagem checagem
-                ? $"classificou como \"{checagem.Classificacao}\""
+                ? $"{checagem.Titulo} (classificou como \"{checagem.Classificacao}\")"
                 : fonte.Titulo);
             texto.AppendLine(fonte.Link.AbsoluteUri);
         }

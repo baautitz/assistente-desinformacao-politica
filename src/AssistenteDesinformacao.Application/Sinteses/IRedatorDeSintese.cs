@@ -7,4 +7,11 @@ namespace AssistenteDesinformacao.Application.Sinteses;
 public interface IRedatorDeSintese
 {
     Task<string> RedigirAsync(IReadOnlyList<Alegacao> alegacoes, IReadOnlyList<Fonte> fontes, CancellationToken ct);
+
+    /// <summary>
+    /// Nova tentativa depois de um resumo recusado: <paramref name="correcao"/> diz o que estava errado na versão anterior,
+    /// para a IA corrigir em vez de tentar às cegas. Quem não sabe usar a correção só redige de novo.
+    /// </summary>
+    Task<string> RedigirAsync(IReadOnlyList<Alegacao> alegacoes, IReadOnlyList<Fonte> fontes, string? correcao, CancellationToken ct) =>
+        RedigirAsync(alegacoes, fontes, ct);
 }

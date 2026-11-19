@@ -137,50 +137,65 @@ public sealed class ResponderConsulta(
 
         progresso?.Report(EtapaDaConsulta.Escrevendo);
         string resumo;
-        string? motivo;
+        Recusa? recusaDoResumo = null;
         var tentativa = 0;
         do
         {
-            // O modelo às vezes mistura idiomas, solta palavras inventadas ou vaza o próprio raciocínio: uma nova tentativa costuma resolver.
-            resumo = (await redator.RedigirAsync(alegacoes, fontes, ct)).Trim();
-            motivo = await MotivoParaDescartarAsync(resumo, fontes, ct);
+            // O modelo às vezes mistura idiomas, acrescenta fato ou erra data: a nova tentativa recebe o motivo da recusa para corrigir.
+            resumo = (await redator.RedigirAsync(alegacoes, fontes, recusaDoResumo?.Correcao, ct)).Trim();
+            recusaDoResumo = await MotivoParaDescartarAsync(resumo, fontes, ct);
             tentativa++;
+            if (recusaDoResumo is not null)
+                logger.LogInformation("Resumo recusado na tentativa {Tentativa}: {Motivo}", tentativa, recusaDoResumo.Correcao);
         }
-        while (motivo is MotivoForaDoPortugues or MotivoNaoFundamentado && tentativa < MaximoDeTentativasDoResumo);
+        while (recusaDoResumo is { Repetir: true } && tentativa < MaximoDeTentativasDoResumo);
+        var motivo = recusaDoResumo?.Motivo;
         if (motivo is null)
             logger.LogInformation("Resumo aprovado pelos guardrails; {Fontes} fontes ({Checagens} checagens)",
                 fontes.Count, fontes.Count(f => f is Checagem));
         else
             logger.LogWarning("Resumo descartado ({Motivo}); enviando só a lista de {Fontes} fontes", motivo, fontes.Count);
-        return new Sintese(motivo is null ? resumo : MensagensDoBot.ResumoPadrao, fontes);
+        if (motivo is null)
+            return new Sintese(resumo, fontes);
+        // Recomendação de voto não ganha nem o resumo das checagens: o texto inteiro é descartado.
+        var checagens = fontes.OfType<Checagem>().ToList();
+        return new Sintese(checagens.Count > 0 && motivo != "recomendação eleitoral"
+            ? MensagensDoBot.ResumoDasChecagens(checagens)
+            : MensagensDoBot.ResumoPadrao, fontes);
     }
 
-    /// <summary>Nulo quando o resumo pode ser enviado; senão, o motivo (só para o log).</summary>
-    private async Task<string?> MotivoParaDescartarAsync(string resumo, IReadOnlyList<Fonte> fontes, CancellationToken ct)
+    /// <summary>Por que o resumo foi recusado: o motivo vai para o log, a correção volta ao redator e só alguns motivos valem nova tentativa.</summary>
+    private sealed record Recusa(string Motivo, string Correcao, bool Repetir);
+
+    /// <summary>Nulo quando o resumo pode ser enviado; senão, a recusa.</summary>
+    private async Task<Recusa?> MotivoParaDescartarAsync(string resumo, IReadOnlyList<Fonte> fontes, CancellationToken ct)
     {
         if (resumo.Length == 0)
-            return "resumo vazio";
+            return new("resumo vazio", "a resposta veio vazia", true);
         if (GuardrailsDeNeutralidade.TemTextoForaDoPortugues(resumo))
-            return MotivoForaDoPortugues;
+            return new(MotivoForaDoPortugues, "havia palavras em outro idioma ou sem sentido; escreva só em português do Brasil", true);
         if (await InduzVotoAsync(resumo, ct))
-            return "recomendação eleitoral";
+            return new("recomendação eleitoral", "o texto parecia recomendar voto", false);
         if (GuardrailsDeNeutralidade.CitaLinkForaDasFontes(resumo, fontes))
-            return "link fora das fontes";
+            return new("link fora das fontes", "não escreva links", true);
         if (GuardrailsDeNeutralidade.TemVereditoPorContaPropria(resumo, fontes))
-            return "veredito sem agência";
+            return new("veredito sem agência", "o texto disse por conta própria que algo é verdadeiro ou falso; atribua a quem disse", true);
+        if (GuardrailsDeNeutralidade.TemConclusaoPorAusencia(resumo, fontes))
+            return new("conclusão por ausência",
+                "o texto concluiu algo da falta de notícia (\"não há confirmação\", \"nada indica\"); relate só o que as fontes afirmam", true);
         // Por último, porque é uma chamada à IA: só roda se as regras baratas acima já aprovaram.
         if (verificador is not null)
         {
             try
             {
-                if (!await verificador.EstaFundamentadoAsync(resumo, fontes, ct))
-                    return MotivoNaoFundamentado;
+                if (await verificador.ProblemaAsync(resumo, fontes, ct) is { } problema)
+                    return new(MotivoNaoFundamentado, problema, true);
             }
             catch (Exception erro) when (erro is not OperationCanceledException)
             {
                 // Sem conseguir conferir, não envia o resumo (nem repete a tentativa): vai só a lista de fontes.
                 logger.LogWarning(erro, "Falha ao verificar o resumo contra as fontes");
-                return "verificador indisponível";
+                return new("verificador indisponível", "", false);
             }
         }
         return null;

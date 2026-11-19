@@ -52,7 +52,7 @@ public class ResponderConsultaTests
 
         var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
 
-        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
+        Assert.Equal(MensagensDoBot.ResumoDasChecagens([ChecagemRecente]), sintese.Resumo);
         Assert.Equal([ChecagemRecente], sintese.Fontes);
     }
 
@@ -67,7 +67,7 @@ public class ResponderConsultaTests
 
         var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
 
-        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
+        Assert.Equal(MensagensDoBot.ResumoDasChecagens([ChecagemRecente]), sintese.Resumo);
         Assert.Equal([ChecagemRecente], sintese.Fontes);
     }
 
@@ -206,7 +206,7 @@ public class ResponderConsultaTests
 
         Assert.Equal(MensagensDoBot.SemAlegacao, (await Criar([], [ChecagemRecente], new RedatorFalso("x")).ExecutarAsync(img)).Resumo);
         Assert.Equal(MensagensDoBot.SemApuracao, (await Criar(["a"], [], new RedatorFalso("x")).ExecutarAsync(img)).Resumo);
-        Assert.Equal(MensagensDoBot.ResumoPadrao,
+        Assert.Equal(MensagensDoBot.ResumoDasChecagens([ChecagemRecente]),
             (await Criar(["a"], [ChecagemRecente], new RedatorFalso("Veja https://inventado.example/x")).ExecutarAsync(img)).Resumo);
     }
 
@@ -217,7 +217,7 @@ public class ResponderConsultaTests
 
         var sintese = await caso.ExecutarAsync(new Consulta("texto recebido"));
 
-        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
+        Assert.Equal(MensagensDoBot.ResumoDasChecagens([ChecagemRecente]), sintese.Resumo);
     }
 
     [Fact]
@@ -318,6 +318,17 @@ public class ResponderConsultaTests
     [InlineData("O Metrópoles relata que Cury defendeu drones contra feminicídio no JN.", false)]
     public void Detecta_texto_fora_do_portugues(string texto, bool fora) =>
         Assert.Equal(fora, GuardrailsDeNeutralidade.TemTextoForaDoPortugues(texto));
+
+    [Theory]
+    [InlineData("Portanto, não há confirmação de que o governo esteja taxando o Pix.", true)]
+    [InlineData("Nada indica que a medida já esteja valendo.", true)]
+    [InlineData("A decisão não foi confirmada pelo ministério.", true)]
+    [InlineData("Segundo o ministério, não há registro de cobrança sobre o Pix.", false)]
+    [InlineData("O Jornal B informa que não há previsão de nova votação.", false)]
+    [InlineData("O decreto deve ser assinado na quinta, segundo o ministro.", false)]
+    public void Detecta_conclusao_tirada_da_falta_de_noticia(string resumo, bool conclui) =>
+        Assert.Equal(conclui, GuardrailsDeNeutralidade.TemConclusaoPorAusencia(resumo,
+            [new Fonte("Matéria", new Uri("https://jornal.example/m"), null, "Jornal B")]));
 
     [Fact]
     public async Task Resumo_com_idioma_misturado_e_refeito_uma_vez()
@@ -440,7 +451,7 @@ public class ResponderConsultaTests
 
         var sintese = await Criar(["alegação"], [ChecagemRecente], redator, verificador: verificador).ExecutarAsync(new Consulta("texto"));
 
-        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
+        Assert.Equal(MensagensDoBot.ResumoDasChecagens([ChecagemRecente]), sintese.Resumo);
         Assert.Equal([ChecagemRecente], sintese.Fontes);
         Assert.Equal(ResponderConsulta.MaximoDeTentativasDoResumo, redator.Chamadas);
     }
@@ -453,7 +464,7 @@ public class ResponderConsultaTests
 
         var sintese = await Criar(["alegação"], [ChecagemRecente], redator, verificador: verificador).ExecutarAsync(new Consulta("texto"));
 
-        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
+        Assert.Equal(MensagensDoBot.ResumoDasChecagens([ChecagemRecente]), sintese.Resumo);
         Assert.Equal([ChecagemRecente], sintese.Fontes);
         Assert.Equal(1, verificador.Chamadas);
     }
@@ -465,7 +476,7 @@ public class ResponderConsultaTests
 
         var sintese = await Criar(["alegação"], [ChecagemRecente], redator).ExecutarAsync(new Consulta("texto"));
 
-        Assert.Equal(MensagensDoBot.ResumoPadrao, sintese.Resumo);
+        Assert.Equal(MensagensDoBot.ResumoDasChecagens([ChecagemRecente]), sintese.Resumo);
         Assert.Equal([ChecagemRecente], sintese.Fontes);
     }
 
@@ -530,6 +541,42 @@ public class ResponderConsultaTests
     }
 
     [Fact]
+    public async Task Resumo_recusado_pelo_verificador_volta_ao_redator_com_o_motivo()
+    {
+        var redator = new RedatorQueAnotaCorrecao("primeira versão", "segunda versão");
+        var verificador = new VerificadorComMotivo(r => r == "primeira versão" ? "D. A data 27/10 não aparece em nenhuma fonte." : null);
+
+        var sintese = await Criar(["alegação"], [ChecagemRecente], redator, verificador: verificador)
+            .ExecutarAsync(new Consulta("mensagem"));
+
+        Assert.Equal("segunda versão", sintese.Resumo);
+        Assert.Equal([null, "D. A data 27/10 não aparece em nenhuma fonte."], redator.Correcoes);
+    }
+
+    private sealed class RedatorQueAnotaCorrecao(params string[] resumos) : IRedatorDeSintese
+    {
+        public List<string?> Correcoes { get; } = [];
+
+        public Task<string> RedigirAsync(IReadOnlyList<Alegacao> alegacoes, IReadOnlyList<Fonte> fontes, CancellationToken ct) =>
+            RedigirAsync(alegacoes, fontes, null, ct);
+
+        public Task<string> RedigirAsync(IReadOnlyList<Alegacao> alegacoes, IReadOnlyList<Fonte> fontes, string? correcao, CancellationToken ct)
+        {
+            Correcoes.Add(correcao);
+            return Task.FromResult(resumos[Math.Min(Correcoes.Count - 1, resumos.Length - 1)]);
+        }
+    }
+
+    private sealed class VerificadorComMotivo(Func<string, string?> problema) : IVerificadorDeResumo
+    {
+        public Task<bool> EstaFundamentadoAsync(string resumo, IReadOnlyList<Fonte> fontes, CancellationToken ct) =>
+            Task.FromResult(problema(resumo) is null);
+
+        public Task<string?> ProblemaAsync(string resumo, IReadOnlyList<Fonte> fontes, CancellationToken ct) =>
+            Task.FromResult(problema(resumo));
+    }
+
+    [Fact]
     public async Task Manchetes_da_busca_pelo_texto_chegam_ao_extrator_como_contexto()
     {
         var extrator = new ExtratorQueAnotaManchetes();
@@ -575,6 +622,21 @@ public class ResponderConsultaTests
         public Task<IReadOnlyList<string>> BuscarAsync(string texto, CancellationToken ct) =>
             manchetes is null ? throw new HttpRequestException("sem rede") : Task.FromResult(manchetes);
     }
+
+    [Fact]
+    public void Resumo_das_checagens_usa_so_os_dados_e_avisa_quando_e_antiga()
+    {
+        var antiga = new Checagem("Folha não publicou que Janja fez ritual", new Uri("https://agencia.example/c"), new DateOnly(2024, 11, 6), "Aos Fatos", "falso");
+
+        var texto = MensagensDoBot.ResumoDasChecagens([antiga]);
+
+        Assert.StartsWith("A agência Aos Fatos classificou como \"falso\" a checagem \"Folha não publicou que Janja fez ritual\", publicada em 06/11/2024.", texto);
+        Assert.Contains("Ponto de atenção", texto);
+    }
+
+    [Fact]
+    public void Conclusao_por_ausencia_nao_e_barrada_quando_uma_agencia_checou() =>
+        Assert.False(GuardrailsDeNeutralidade.TemConclusaoPorAusencia("Não há registro de que a Folha publicou essa matéria.", [ChecagemRecente]));
 
     private static ResponderConsulta Criar(string[] alegacoes, IReadOnlyList<Fonte> fontes, IRedatorDeSintese redator,
         ClassificadorDeNeutralidadeFalso? classificador = null, IVerificadorDeResumo? verificador = null, IJuizDeMensagem? juizDeMensagem = null, IEnriquecedorDeFontes? enriquecedor = null) =>

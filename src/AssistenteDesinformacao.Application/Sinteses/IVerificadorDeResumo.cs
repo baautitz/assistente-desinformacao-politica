@@ -9,4 +9,8 @@ namespace AssistenteDesinformacao.Application.Sinteses;
 public interface IVerificadorDeResumo
 {
     Task<bool> EstaFundamentadoAsync(string resumo, IReadOnlyList<Fonte> fontes, CancellationToken ct);
+
+    /// <summary>Nulo quando o resumo está fundamentado; senão, o problema achado, que volta ao redator para ele corrigir.</summary>
+    async Task<string?> ProblemaAsync(string resumo, IReadOnlyList<Fonte> fontes, CancellationToken ct) =>
+        await EstaFundamentadoAsync(resumo, fontes, ct) ? null : "o resumo traz algo que as fontes não dizem";
 }
