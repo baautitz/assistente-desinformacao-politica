@@ -14,6 +14,21 @@ public class BuscadorNaFactCheckTests
           {"publisher":{"name":"Sem link"},"url":"claims:invalido","textualRating":"Falso"}]}]}
         """;
 
+    [Theory]
+    [InlineData("Câmara aprova fim da escala 6x1", "6x1")]
+    [InlineData("PEC da segurança é aprovada no STF", "PEC")]
+    [InlineData("PEC da segurança é aprovada no STF", "STF")]
+    [InlineData("Lula e o PT anunciam medida", "PT")]
+    [InlineData("camara aprova pec no stf", "pec")]
+    [InlineData("camara aprova pec no stf", "stf")]
+    [InlineData("camara aprova fim da escala 6x1", "fim")]
+    public void Palavras_chave_mantem_sigla_e_termo_curto_em_qualquer_caixa(string texto, string termo) =>
+        Assert.Contains(termo, BuscadorNaFactCheck.PalavrasChave(texto).Split(' '));
+
+    [Fact]
+    public void Palavras_chave_tiram_artigos_e_preposicoes() =>
+        Assert.Equal("camara aprova fim escala 6x1", BuscadorNaFactCheck.PalavrasChave("a camara aprova o fim da escala 6x1"));
+
     [Fact]
     public async Task Chama_o_endereco_certo_com_a_chave_no_cabecalho_e_le_a_checagem()
     {

@@ -13,15 +13,19 @@ namespace AssistenteDesinformacao.Infrastructure.Pesquisa;
 
 /// <summary>
 /// Busca matérias na hora pelo feed de busca do Google Notícias, sem depender do que o coletor já guardou.
-/// Tenta as palavras-chave inteiras e depois só as primeiras, porque o Google exige todas as palavras.
+/// Busca pelos termos que a IA gera (corrigem digitação e usam o nome que a imprensa dá ao assunto). Só se a IA não
+/// responder usa as palavras-chave da própria Alegação, inteiras e depois só as primeiras, porque o Google exige todas as palavras.
 /// </summary>
 public sealed partial class BuscadorNoGoogleNoticias(
-    HttpClient http, int janelaEmDias = 90, ILogger<BuscadorNoGoogleNoticias>? logger = null) : IBuscadorDeFontes
+    HttpClient http, int janelaEmDias = 90, ILogger<BuscadorNoGoogleNoticias>? logger = null,
+    IGeradorDeTermosDeBusca? gerador = null) : IBuscadorDeFontes, IEnriquecedorDeFontes
 {
     /// <summary>Poucas chamadas ao Google ao mesmo tempo: dez de uma vez fazem alguns links falharem de forma intermitente.</summary>
     private readonly SemaphoreSlim _vagas = new(4);
 
-    public const int Maximo = 10;
+    public const int Maximo = 12;
+
+    public const int TermosDaIa = 3;
 
     /// <summary>Poupa as vagas dos 10 resultados; o filtro de veículos confiáveis em <see cref="Ler"/> é a garantia.</summary>
     private const string SemRedesSociais =
@@ -30,13 +34,18 @@ public sealed partial class BuscadorNoGoogleNoticias(
 
     public async Task<IReadOnlyList<Fonte>> BuscarAsync(Alegacao alegacao, CancellationToken ct)
     {
-        var palavras = BuscadorNaFactCheck.PalavrasChave(alegacao.Texto).Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (palavras.Length == 0)
+        var consultas = (await TermosDaIaAsync(alegacao, ct)).ToList();
+        if (consultas.Count == 0)
+        {
+            var palavras = BuscadorNaFactCheck.PalavrasChave(alegacao.Texto).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (palavras.Length > 0)
+                consultas.Add(string.Join(' ', palavras));
+            if (palavras.Length > MenorConsulta)
+                consultas.Add(string.Join(' ', palavras.Take(MenorConsulta)));
+        }
+        consultas = consultas.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (consultas.Count == 0)
             return [];
-
-        var consultas = new List<string> { string.Join(' ', palavras) };
-        if (palavras.Length > MenorConsulta)
-            consultas.Add(string.Join(' ', palavras.Take(MenorConsulta)));
 
         var tarefas = consultas.Select(c => ConsultarAsync(c, ct)).ToList();
         try
@@ -48,17 +57,42 @@ public sealed partial class BuscadorNoGoogleNoticias(
             // Uma consulta falhou, a outra respondeu: segue com o que veio.
         }
 
-        var fontes = tarefas.Where(t => t.IsCompletedSuccessfully)
-            .SelectMany(t => t.Result)
+        // Intercala os resultados de cada consulta: sem isso, a primeira consulta ocupa todas as vagas e os termos da IA nunca entram.
+        var listas = tarefas.Where(t => t.IsCompletedSuccessfully).Select(t => t.Result).ToList();
+        var fontes = Enumerable.Range(0, listas.Count == 0 ? 0 : listas.Max(l => l.Count))
+            .SelectMany(i => listas.Where(l => i < l.Count).Select(l => l[i]))
             .DistinctBy(f => f.Link)
             .Take(Maximo)
             .ToList();
 
-        // Troca o redirecionamento do Google pelo link direto da matéria; se não der, mantém o do Google.
-        var diretos = await Task.WhenAll(fontes.Select(f => ResolverSemFalharAsync(f.Link, ct)));
+        // O link direto só é resolvido depois, para as fontes escolhidas (EnriquecerAsync): resolver todas as candidatas faz o Google
+        // responder 429 e aí nenhuma matéria é lida.
+        return fontes;
+    }
+
+    /// <summary>Troca o redirecionamento do Google pelo link direto da matéria, só nas fontes escolhidas; se não der, mantém o do Google.</summary>
+    public async Task<IReadOnlyList<Fonte>> EnriquecerAsync(IReadOnlyList<Fonte> fontes, CancellationToken ct)
+    {
+        var diretos = await Task.WhenAll(fontes.Select(f =>
+            f.Link.Host == "news.google.com" ? ResolverSemFalharAsync(f.Link, ct) : Task.FromResult(f.Link)));
         return fontes.Select((f, i) => f with { Link = diretos[i] })
             .DistinctBy(f => f.Link)
             .ToList();
+    }
+
+    private async Task<IReadOnlyList<string>> TermosDaIaAsync(Alegacao alegacao, CancellationToken ct)
+    {
+        if (gerador is null)
+            return [];
+        try
+        {
+            return (await gerador.GerarAsync(alegacao, ct)).Take(TermosDaIa).ToList();
+        }
+        catch (Exception erro) when (!ct.IsCancellationRequested)
+        {
+            logger?.LogWarning("Google Notícias: falha ao gerar termos com a IA; usando as palavras-chave: {Erro}", erro.Message);
+            return [];
+        }
     }
 
     private const string EnderecoDosArtigos = "https://news.google.com/rss/articles/";
@@ -163,11 +197,13 @@ public sealed partial class BuscadorNoGoogleNoticias(
 
     private async Task<IReadOnlyList<Fonte>> ConsultarAsync(string consulta, CancellationToken ct)
     {
-        var url = "https://news.google.com/rss/search"
-            + $"?q={Uri.EscapeDataString($"{consulta} when:{janelaEmDias}d{SemRedesSociais}")}&hl=pt-BR&gl=BR&ceid=BR:pt-419";
-        await using var fluxo = await http.GetStreamAsync(url, ct);
+        await using var fluxo = await http.GetStreamAsync(EnderecoDaBusca(consulta, janelaEmDias), ct);
         return Ler(fluxo).Take(Maximo).ToList();
     }
+
+    public static string EnderecoDaBusca(string consulta, int janelaEmDias) =>
+        "https://news.google.com/rss/search"
+        + $"?q={Uri.EscapeDataString($"{consulta} when:{janelaEmDias}d{SemRedesSociais}")}&hl=pt-BR&gl=BR&ceid=BR:pt-419";
 
     public static IReadOnlyList<Fonte> Ler(Stream xml)
     {

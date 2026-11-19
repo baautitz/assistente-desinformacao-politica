@@ -76,13 +76,21 @@ public static class InjecaoDeDependencias
             http.Timeout = TimeSpan.FromSeconds(15);
             http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
         });
-        services.AddHttpClient<IEnriquecedorDeFontes, LeitorDeMateria>(http =>
+        services.AddScoped<IEnriquecedorDeFontes>(sp => new EnriquecedorEmEtapas(
+            [sp.GetRequiredService<BuscadorNoGoogleNoticias>(), sp.GetRequiredService<LeitorDeMateria>()]));
+        services.AddHttpClient<LeitorDeMateria>(http =>
         {
             http.Timeout = TimeSpan.FromSeconds(10);
             http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36");
             http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("pt-BR");
         });
-        services.AddSingleton<IGeradorDeTermosDeBusca, GeradorDeTermosComIa>();
+        services.AddHttpClient<IManchetesDaBusca, ManchetesNoGoogleNoticias>(http =>
+        {
+            http.Timeout = TimeSpan.FromSeconds(8);
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+        });
+        services.AddSingleton<IGeradorDeTermosDeBusca>(sp =>
+            new GeradorDeTermosComCache(new GeradorDeTermosComIa(sp.GetRequiredService<IChatClient>(), sp.GetRequiredService<IManchetesDaBusca>())));
         services.AddScoped<IBuscaDeMaterias, BuscaDeMateriasNoPostgres>();
         services.AddScoped<IBuscaVetorialDeMaterias, BuscaVetorialNoPostgres>();
         services.AddScoped<IBuscadorDeFontes>(sp => new BuscadorCombinado(

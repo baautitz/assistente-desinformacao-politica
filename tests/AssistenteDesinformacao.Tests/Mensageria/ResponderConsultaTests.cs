@@ -516,6 +516,66 @@ public class ResponderConsultaTests
     public void Classificador_so_libera_com_nao_claro(string? resposta, bool bloqueia) =>
         Assert.Equal(bloqueia, AssistenteDesinformacao.Infrastructure.Analise.ClassificadorDeNeutralidadeComIa.Interpretar(resposta));
 
+    [Fact]
+    public void Selecao_poe_checagem_primeiro_e_materias_da_mais_recente_para_a_mais_antiga()
+    {
+        Fonte Materia(string titulo, int dia) => new(titulo, new Uri($"https://jornal.example/{titulo}"), new DateOnly(2026, 11, dia), "Jornal");
+        var antiga = Materia("antiga", 1);
+        var nova = Materia("nova", 17);
+        var meio = Materia("meio", 10);
+
+        var escolhidas = ResponderConsulta.Selecionar([antiga, ChecagemRecente, nova, meio]);
+
+        Assert.Equal([ChecagemRecente, nova, meio, antiga], escolhidas);
+    }
+
+    [Fact]
+    public async Task Manchetes_da_busca_pelo_texto_chegam_ao_extrator_como_contexto()
+    {
+        var extrator = new ExtratorQueAnotaManchetes();
+        var caso = new ResponderConsulta(extrator, new ExtratorDeImagemFalso(["alegação"], disponivel: true),
+            new BuscadorFalso([ChecagemRecente]), new RedatorFalso("resumo"), ClassificadorDeNeutralidadeFalso.Liberando,
+            NullLogger<ResponderConsulta>.Instance, manchetes: new ManchetesFalsas(["Senado aprova fim da escala 6x1 (Agência Brasil, 14/10/2026)"]));
+
+        await caso.ExecutarAsync(new Consulta("camara aprova fim da esca 6x1"));
+
+        Assert.Equal(["Senado aprova fim da escala 6x1 (Agência Brasil, 14/10/2026)"], extrator.Manchetes);
+    }
+
+    [Fact]
+    public async Task Falha_na_busca_de_manchetes_nao_impede_a_resposta()
+    {
+        var extrator = new ExtratorQueAnotaManchetes();
+        var caso = new ResponderConsulta(extrator, new ExtratorDeImagemFalso(["alegação"], disponivel: true),
+            new BuscadorFalso([ChecagemRecente]), new RedatorFalso("resumo"), ClassificadorDeNeutralidadeFalso.Liberando,
+            NullLogger<ResponderConsulta>.Instance, manchetes: new ManchetesFalsas(null));
+
+        var sintese = await caso.ExecutarAsync(new Consulta("texto"));
+
+        Assert.Equal("resumo", sintese.Resumo);
+        Assert.Empty(extrator.Manchetes!);
+    }
+
+    private sealed class ExtratorQueAnotaManchetes : IExtratorDeAlegacoes
+    {
+        public IReadOnlyList<string>? Manchetes { get; private set; }
+
+        public Task<IReadOnlyList<Alegacao>> ExtrairAsync(string texto, CancellationToken ct) => ExtrairAsync(texto, [], ct);
+
+        public Task<IReadOnlyList<Alegacao>> ExtrairAsync(string texto, IReadOnlyList<string> manchetes, CancellationToken ct)
+        {
+            Manchetes = manchetes;
+            return Task.FromResult<IReadOnlyList<Alegacao>>([new Alegacao("alegação")]);
+        }
+    }
+
+    /// <summary>Com null, simula a busca fora do ar.</summary>
+    private sealed class ManchetesFalsas(IReadOnlyList<string>? manchetes) : IManchetesDaBusca
+    {
+        public Task<IReadOnlyList<string>> BuscarAsync(string texto, CancellationToken ct) =>
+            manchetes is null ? throw new HttpRequestException("sem rede") : Task.FromResult(manchetes);
+    }
+
     private static ResponderConsulta Criar(string[] alegacoes, IReadOnlyList<Fonte> fontes, IRedatorDeSintese redator,
         ClassificadorDeNeutralidadeFalso? classificador = null, IVerificadorDeResumo? verificador = null, IJuizDeMensagem? juizDeMensagem = null, IEnriquecedorDeFontes? enriquecedor = null) =>
         new(new ExtratorFalso(alegacoes), new ExtratorDeImagemFalso(alegacoes, disponivel: true), new BuscadorFalso(fontes), redator,

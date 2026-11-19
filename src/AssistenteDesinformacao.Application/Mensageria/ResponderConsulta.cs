@@ -19,14 +19,17 @@ public sealed class ResponderConsulta(
     IJuizDeRelevancia? juiz = null,
     IVerificadorDeResumo? verificador = null,
     IJuizDeMensagem? juizDeMensagem = null,
-    IEnriquecedorDeFontes? enriquecedor = null)
+    IEnriquecedorDeFontes? enriquecedor = null,
+    IManchetesDaBusca? manchetes = null)
 {
     public const int MaximoDeAlegacoes = 3;
     public const int MaximoDeTentativasDeBusca = 3;
     private const string MotivoForaDoPortugues = "texto fora do português";
     private const string MotivoNaoFundamentado = "resumo não apoiado pelas fontes";
     public const int MaximoDeTentativasDoResumo = 4;
-    public const int MaximoDeFontes = 5;
+    public const int MaximoDeFontes = 6;
+    /// <summary>Checagens que entram no resumo: mais que isso costuma ser a mesma afirmação checada por várias agências.</summary>
+    public const int MaximoDeChecagens = 2;
     public const int MaximoDeCaracteresDaBusca = 500;
     public const int MaximoDeBytesDaImagem = 5 * 1024 * 1024;
 
@@ -83,7 +86,8 @@ public sealed class ResponderConsulta(
             if (juizDeMensagem is not null && await JulgarMensagemAsync(consulta.Texto, juizDeMensagem, ct) is { } recusa)
                 return Mensagem(recusa);
 
-            extraidas = await extrator.ExtrairAsync(consulta.Texto, ct);
+            // Primeiro pesquisa o texto como veio: as manchetes dizem à IA de que assunto se trata, sem ela adivinhar.
+            extraidas = await extrator.ExtrairAsync(consulta.Texto, await ManchetesAsync(consulta.Texto, ct), ct);
             // Opinião ou previsão ("fulano vai destruir o país") não tem fato isolado, mas o assunto tem apuração publicada.
             // Em vez de pedir outro texto ao usuário, o bot busca pelo que ele escreveu.
             // Sem afirmação, a IA julga se a mensagem pede ou induz voto (regex só como atalho). Se sim, não há o que apurar:
@@ -211,7 +215,7 @@ public sealed class ResponderConsulta(
             logger.LogInformation("Busca {Tentativa}/{Maximo}: {Candidatas} candidatas ({Checagens} checagens), {Relevantes} relevantes",
                 tentativa, MaximoDeTentativasDeBusca, candidatas.Count, candidatas.Count(f => f is Checagem), relevantes.Count);
             if (relevantes.Count > 0)
-                return relevantes.Take(MaximoDeFontes).ToList();
+                return Selecionar(relevantes);
 
             if (juiz is null || tentativa >= MaximoDeTentativasDeBusca)
                 return [];
@@ -224,6 +228,36 @@ public sealed class ResponderConsulta(
             atuais = reformuladas;
         }
     }
+
+    /// <summary>Sem manchetes (busca fora do ar), a extração segue só com o texto.</summary>
+    private async Task<IReadOnlyList<string>> ManchetesAsync(string texto, CancellationToken ct)
+    {
+        if (manchetes is null)
+            return [];
+        try
+        {
+            var achadas = await manchetes.BuscarAsync(texto, ct);
+            logger.LogInformation("Manchetes de contexto: {Quantidade}", achadas.Count);
+            return achadas;
+        }
+        catch (Exception erro) when (erro is not OperationCanceledException)
+        {
+            logger.LogWarning("Falha ao buscar manchetes de contexto: {Erro}", erro.Message);
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Checagens primeiro (no máximo <see cref="MaximoDeChecagens"/>), depois as matérias da mais recente para a mais antiga:
+    /// a situação atual vem das notícias novas, e a ordem da busca não diz nada sobre atualidade.
+    /// </summary>
+    public static IReadOnlyList<Fonte> Selecionar(IReadOnlyList<Fonte> relevantes) =>
+        relevantes.Where(f => f is Checagem).Take(MaximoDeChecagens)
+            .Concat(relevantes.Where(f => f is not Checagem).OrderByDescending(f => f.DataPublicacao ?? DateOnly.MinValue))
+            // A mesma matéria chega por links diferentes ("G1" e "g1 Política", Google e RSS): o título igual denuncia.
+            .DistinctBy(f => f.Titulo.Trim().ToLowerInvariant())
+            .Take(MaximoDeFontes)
+            .ToList();
 
     /// <summary>
     /// A regra é sobre o que o BOT diz, não sobre o que o usuário envia: só o resumo gerado passa por aqui.
