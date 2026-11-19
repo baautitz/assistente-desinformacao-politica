@@ -116,6 +116,8 @@ public sealed class ResponderConsulta(
             return Mensagem(MensagensDoBot.SemApuracao);
         }
 
+        fontes = Fonte.SemChecagensDefasadas(fontes);
+
         // As fontes já foram escolhidas: agora lê o começo do texto de cada uma para o resumo não depender só do título.
         if (enriquecedor is not null)
         {

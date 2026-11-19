@@ -1,3 +1,4 @@
+using AssistenteDesinformacao.Domain.Pesquisa;
 using AssistenteDesinformacao.Infrastructure.Pesquisa;
 
 namespace AssistenteDesinformacao.Tests.Pesquisa;
@@ -61,4 +62,26 @@ public class LeitorDeMateriaTests
     [Fact]
     public void Pagina_sem_texto_devolve_vazio() =>
         Assert.Equal("", LeitorDeMateria.ExtrairTexto("<html><body><div>nada</div></body></html>"));
+
+    [Fact]
+    public void Checagem_com_mais_de_um_ano_para_a_noticia_recente_sai()
+    {
+        var antiga = new Checagem("PEC não foi votada", new Uri("https://uol.com.br/confere/2024/11/14/pec.htm"), null, "UOL", "Falso");
+        var recente = new Checagem("Vídeo é falso", new Uri("https://aosfatos.org/x/"), new DateOnly(2026, 5, 29), "Aos Fatos", "Falso");
+        var noticia = new Fonte("Congresso promulga", new Uri("https://camara.leg.br/n"), new DateOnly(2026, 10, 16), "Câmara");
+
+        var restantes = Fonte.SemChecagensDefasadas([antiga, recente, noticia]);
+
+        Assert.DoesNotContain(antiga, restantes);
+        Assert.Contains(recente, restantes);
+        Assert.Contains(noticia, restantes);
+    }
+
+    [Fact]
+    public void Sem_noticia_para_comparar_mantem_a_checagem_antiga()
+    {
+        var antiga = new Checagem("PEC não foi votada", new Uri("https://uol.com.br/confere/2024/11/14/pec.htm"), null, "UOL", "Falso");
+
+        Assert.Single(Fonte.SemChecagensDefasadas([antiga]));
+    }
 }
