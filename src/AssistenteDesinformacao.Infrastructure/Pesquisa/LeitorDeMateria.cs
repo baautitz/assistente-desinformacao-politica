@@ -13,7 +13,7 @@ namespace AssistenteDesinformacao.Infrastructure.Pesquisa;
 /// </summary>
 public sealed partial class LeitorDeMateria(HttpClient http, ILogger<LeitorDeMateria>? logger = null) : IEnriquecedorDeFontes
 {
-    public const int MaximoDeCaracteres = 1000;
+    public const int MaximoDeCaracteres = 1500;
     private const int MaximoDeBytes = 600_000;
     private static readonly TimeSpan LimiteDeTempo = TimeSpan.FromSeconds(7);
 
@@ -26,8 +26,8 @@ public sealed partial class LeitorDeMateria(HttpClient http, ILogger<LeitorDeMat
 
     private async Task<(Fonte Fonte, bool Lida)> LerSemFalharAsync(Fonte fonte, CancellationToken ct)
     {
-        // Checagem já traz a afirmação checada; só matérias de veículos confiáveis são baixadas.
-        if (fonte is Checagem || !VeiculosConfiaveis.Aceita(fonte.Link))
+        // Só veículos e agências da lista confiável são baixados.
+        if (!VeiculosConfiaveis.Aceita(fonte.Link))
             return (fonte, false);
 
         using var limite = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -36,7 +36,13 @@ public sealed partial class LeitorDeMateria(HttpClient http, ILogger<LeitorDeMat
         {
             var html = await BaixarAsync(fonte.Link, limite.Token);
             var texto = ExtrairTexto(html);
-            return texto.Length < 80 ? (fonte, false) : (fonte with { Trecho = texto }, true);
+            if (texto.Length < 80)
+                return (fonte, false);
+            // Na checagem, a afirmação checada continua no trecho: o texto da agência traz o porquê da classificação,
+            // sem ele a IA só sabe que algo foi classificado e inventa o motivo.
+            return fonte is Checagem && !string.IsNullOrWhiteSpace(fonte.Trecho)
+                ? (fonte with { Trecho = $"Afirmação checada: {fonte.Trecho} Texto da checagem: {texto}" }, true)
+                : (fonte with { Trecho = texto }, true);
         }
         catch (Exception erro) when (!ct.IsCancellationRequested)
         {
@@ -75,7 +81,7 @@ public sealed partial class LeitorDeMateria(HttpClient http, ILogger<LeitorDeMat
             if (texto.Length < 60 || partes.Any(p => p.StartsWith(texto[..Math.Min(40, texto.Length)], StringComparison.OrdinalIgnoreCase)))
                 continue;
             partes.Add(texto);
-            if (partes.Sum(p => p.Length) >= MaximoDeCaracteres || partes.Count >= 4)
+            if (partes.Sum(p => p.Length) >= MaximoDeCaracteres || partes.Count >= 6)
                 break;
         }
 
