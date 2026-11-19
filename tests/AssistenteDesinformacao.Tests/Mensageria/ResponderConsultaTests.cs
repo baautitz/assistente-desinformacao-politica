@@ -634,6 +634,14 @@ public class ResponderConsultaTests
         Assert.Contains("Ponto de atenção", texto);
     }
 
+    [Theory]
+    [InlineData("Ponto de atenção: a mensagem que compara Lula à Venezuela simplifica um debate complexo.", true)]
+    [InlineData("Ponto de atenção: a mensagem ignora que a proposta ainda está em discussão.", true)]
+    [InlineData("Ponto de atenção: a mensagem não menciona que a proposta ainda depende do Congresso.", false)]
+    [InlineData("A oposição diz que o governo exagera nos gastos.", false)]
+    public void Detecta_o_bot_julgando_a_mensagem(string resumo, bool julga) =>
+        Assert.Equal(julga, GuardrailsDeNeutralidade.JulgaAMensagem(resumo));
+
     [Fact]
     public void Conclusao_por_ausencia_nao_e_barrada_quando_uma_agencia_checou() =>
         Assert.False(GuardrailsDeNeutralidade.TemConclusaoPorAusencia("Não há registro de que a Folha publicou essa matéria.", [ChecagemRecente]));

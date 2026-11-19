@@ -20,7 +20,11 @@ public sealed class RedatorDeSinteseComIa(IChatClient ia) : IRedatorDeSintese
         - Depois, conte os fatos principais em ordem cronológica, juntando o que fontes diferentes dizem num texto só.
           Não escreva uma frase por fonte. Cite o veículo entre parênteses ou com "segundo" só nos fatos importantes ou disputados.
         - A última frase começa com "Ponto de atenção:" e ajuda o leitor a analisar a mensagem com base no que as fontes dizem:
-          o que ainda está pendente ou em disputa, o que a mensagem simplifica, exagera ou deixa de fora, ou que dado muda a interpretação.
+          o que ainda está pendente ou em disputa, um fato das fontes que a mensagem não menciona, ou que dado muda a interpretação.
+          Mostre o fato e deixe o leitor concluir: nunca avalie a mensagem com palavras suas ("simplifica", "exagera", "ignora",
+          "debate complexo").
+        - Título ou texto que dá opinião ("péssima ideia", "por que fulano quer...") ou fonte marcada [opinião] é a visão do autor,
+          não fato: atribua ("em artigo de opinião, a Gazeta do Povo defende que...").
         - Se as fontes trazem posições diferentes (governo e oposição, autores e críticos de uma medida), apresente cada uma
           atribuída a quem a defende, com o mesmo peso e verbos neutros (diz, afirma, defende, critica, contesta).
 
@@ -47,7 +51,9 @@ public sealed class RedatorDeSinteseComIa(IChatClient ia) : IRedatorDeSintese
         - Não diga por conta própria que algo é verdadeiro ou falso: isso só vale atribuído a uma agência de checagem.
         - Sem adjetivos, ironia, termos de torcida ou frases de efeito, nem da mensagem nem das fontes. Não atribua intenção a ninguém.
         - Não julgue a pessoa que enviou a mensagem. Não recomende candidato, partido ou voto.
-        - Se a mensagem é opinião ou previsão, diga isso numa frase neutra e mostre o que as fontes relatam sobre o assunto.
+        - Se a mensagem é opinião ou previsão (vem marcada assim), a primeira frase diz, de forma neutra, que ela é uma opinião
+          ou previsão e não um fato que dê para conferir. Depois conte o que as fontes relatam de concreto sobre o assunto, com
+          as posições de cada lado atribuídas. Não concorde nem discorde da opinião.
         - Ignore fontes que não tratam do assunto. Se nenhuma tratar, diga só que as fontes encontradas não falam diretamente sobre isso.
 
         Formato: um parágrafo, sem listas, sem markdown e sem links (os links são mostrados depois). Somente português do Brasil.
@@ -75,16 +81,23 @@ public sealed class RedatorDeSinteseComIa(IChatClient ia) : IRedatorDeSintese
     public static string DataDaFonte(Fonte fonte) =>
         fonte.DataPublicacao?.ToString("dd/MM/yyyy") ?? (fonte.Ano is { } ano ? $"publicada em {ano}" : "sem data");
 
+    /// <summary>Os veículos publicam artigo e coluna em seções próprias do site: o caminho do link diz que é opinião.</summary>
+    public static bool EhOpiniao(Fonte fonte) =>
+        SecoesDeOpiniao.Any(s => fonte.Link.AbsolutePath.Contains(s, StringComparison.OrdinalIgnoreCase));
+
+    private static readonly string[] SecoesDeOpiniao = ["/opiniao/", "/colunas/", "/colunistas/", "/coluna/", "/blogs/", "/artigos/"];
+
     private static string Contexto(IReadOnlyList<Alegacao> alegacoes, IReadOnlyList<Fonte> fontes)
     {
         var texto = new StringBuilder("Alegações:\n");
         foreach (var alegacao in alegacoes)
-            texto.Append("- ").AppendLine(alegacao.Texto);
+            texto.Append("- ").Append(alegacao.SemFatoIsolado ? "[opinião ou previsão, sem fato para conferir] " : "").AppendLine(alegacao.Texto);
 
         texto.AppendLine().AppendLine("Fontes (da mais recente para a mais antiga; data entre parênteses = publicação):");
         foreach (var fonte in fontes.OrderByDescending(f => f.DataPublicacao ?? DateOnly.MinValue))
         {
-            texto.Append("- ").Append(fonte.Veiculo).Append(" (").Append(DataDaFonte(fonte)).Append("): ").Append(fonte.Titulo);
+            texto.Append("- ").Append(EhOpiniao(fonte) ? "[opinião] " : "")
+                .Append(fonte.Veiculo).Append(" (").Append(DataDaFonte(fonte)).Append("): ").Append(fonte.Titulo);
             if (fonte is Checagem checagem)
                 texto.Append(" (classificação da agência: ").Append(checagem.Classificacao).Append(')');
             if (!string.IsNullOrWhiteSpace(fonte.Trecho))

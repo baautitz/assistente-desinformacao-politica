@@ -44,6 +44,18 @@ public static partial class GuardrailsDeNeutralidade
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ConclusaoPorAusencia();
 
+    /// <summary>O bot avaliando a mensagem com voz própria: "a mensagem simplifica um debate complexo", "a mensagem ignora que...".</summary>
+    [GeneratedRegex(
+        @"\b(a|essa|esta)\s+(mensagem|afirma[cç][aã]o|compara[cç][aã]o|alega[cç][aã]o)\b[^.!?\n]*\b(simplific|exager|distorc|ignor|desconsider|n[aã]o\s+considera|deturp|generaliz)\w*",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex JulgamentoDaMensagem();
+
+    /// <summary>
+    /// Verdadeiro se o resumo julga a mensagem por conta própria. Dizer que a mensagem "simplifica" ou "exagera" é opinião do bot
+    /// e soa como tomar partido; o resumo deve mostrar o fato que falta e deixar o leitor concluir.
+    /// </summary>
+    public static bool JulgaAMensagem(string resumo) => JulgamentoDaMensagem().IsMatch(resumo);
+
     [GeneratedRegex(@"[.!?\n]+", RegexOptions.CultureInvariant)]
     private static partial Regex Frases();
 

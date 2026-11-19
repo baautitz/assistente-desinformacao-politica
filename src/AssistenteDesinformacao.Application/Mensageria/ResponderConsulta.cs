@@ -102,7 +102,7 @@ public sealed class ResponderConsulta(
             {
                 logger.LogInformation("Nenhum fato isolado na mensagem; buscando pelo texto como um todo");
                 var texto = consulta.Texto.Trim();
-                extraidas = [new Alegacao(texto.Length > MaximoDeCaracteresDaBusca ? texto[..MaximoDeCaracteresDaBusca] : texto)];
+                extraidas = [new Alegacao(texto.Length > MaximoDeCaracteresDaBusca ? texto[..MaximoDeCaracteresDaBusca] : texto, SemFatoIsolado: true)];
             }
         }
 
@@ -183,6 +183,9 @@ public sealed class ResponderConsulta(
         if (GuardrailsDeNeutralidade.TemConclusaoPorAusencia(resumo, fontes))
             return new("conclusão por ausência",
                 "o texto concluiu algo da falta de notícia (\"não há confirmação\", \"nada indica\"); relate só o que as fontes afirmam", true);
+        if (GuardrailsDeNeutralidade.JulgaAMensagem(resumo))
+            return new("julgamento da mensagem",
+                "o texto avaliou a mensagem com palavras próprias (\"simplifica\", \"exagera\", \"ignora\"); em vez de julgar, cite o fato das fontes que a mensagem não menciona e deixe o leitor concluir", true);
         // Por último, porque é uma chamada à IA: só roda se as regras baratas acima já aprovaram.
         if (verificador is not null)
         {
